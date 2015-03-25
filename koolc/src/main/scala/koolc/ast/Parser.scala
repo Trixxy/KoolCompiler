@@ -168,7 +168,7 @@ object Parser extends Pipeline[Iterator[Token], Program] {
       methods
     }
 
-    //
+    //DONE
     def _Type() = {
       currentToken.kind match {
         case INT => {
@@ -196,64 +196,83 @@ object Parser extends Pipeline[Iterator[Token], Program] {
       }
     }
 
+    /*
+    Statement ::= { ( Statement )* }
+                | if ( Expression ) Statement ( else Statement )?
+                | while ( Expression ) Statement
+                | println ( Expression ) ;
+                | Identifier = Expression ;
+                | Identifier [ Expression ] = Expression ;
+    */
     def _Statement () : List[StatTree] = {
       //OPTIONAL
-      currentToken.kind match {
-        case LBRACE => {
-          eat(LBRACE)
-          _Statement() 
-          eat(RBRACE)
-        }
-        case IF => {
-          eat(IF) 
-          eat(LPAREN) 
-          _Expression() 
-          eat(RPAREN) 
-          _Statement() 
-          if(currentToken.kind == ELSE){
-            eat(ELSE) 
+
+      var stats : List[StatTree] = Nil
+
+      while(/*STATEMENT STARTERS, OBS IDENTIFIER*/){
+
+        currentToken.kind match {
+          case LBRACE => {
+            eat(LBRACE)
+            _Statement() 
+            eat(RBRACE)
+          }
+          case IF => {
+            eat(IF) 
+            eat(LPAREN) 
+            _Expression() 
+            eat(RPAREN) 
+            _Statement() 
+            if(currentToken.kind == ELSE){
+              eat(ELSE) 
+              _Statement()
+            }
+          }
+          case WHILE => {
+            eat(WHILE)
+            eat(LPAREN) 
+            _Expression() 
+            eat(RPAREN) 
             _Statement()
           }
-        }
-        case WHILE => {
-          eat(WHILE)
-          eat(LPAREN) 
-          _Expression() 
-          eat(RPAREN) 
-          _Statement()
-        }
-        case PRINTLN => {
-          PRINTLN 
-          eat(LPAREN) 
-          _Expression() 
-          eat(RPAREN) 
-          eat(SEMICOLON)
-        }
-        case IDKIND => {
-          _Identifier()
-          
-          currentToken.kind match {
-            case EQSIGN => {
-              eat(EQSIGN) 
-              _Expression() 
-              eat(SEMICOLON)
-            }
-            case LBRACKET => {
-              eat(LBRACKET) 
-              _Expression() 
-              eat(RBRACKET) 
-              eat(EQSIGN) 
-              _Expression() 
-              eat(SEMICOLON)
-            }
-            case _ => expected(EQSIGN, LBRACKET)
+          case PRINTLN => {
+            PRINTLN 
+            eat(LPAREN) 
+            _Expression() 
+            eat(RPAREN) 
+            eat(SEMICOLON)
           }
+          case IDKIND => {
+            _Identifier()
+            
+            currentToken.kind match {
+              case EQSIGN => {
+                eat(EQSIGN) 
+                _Expression() 
+                eat(SEMICOLON)
+              }
+              case LBRACKET => {
+                eat(LBRACKET) 
+                _Expression() 
+                eat(RBRACKET) 
+                eat(EQSIGN) 
+                _Expression() 
+                eat(SEMICOLON)
+              }
+              case _ => expected(EQSIGN, LBRACKET)
 
-        }
+            } //IDKIND Match
 
-      }
+          } //IDKIND case
 
-    }
+        } //Match
+
+      } //While
+
+      stats
+
+    } //Func
+
     def _Expression  () : Unit = {
 
       //FACTOR
@@ -387,8 +406,7 @@ object Parser extends Pipeline[Iterator[Token], Program] {
     def _Identifier () : Identifier = {
       val id = currentToken
       eat(IDKIND)
-      val test : ID = id 
-      new Identifier(test.value)
+      new Identifier(id.toString)
     }
 
     readToken
