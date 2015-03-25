@@ -39,15 +39,19 @@ object Parser extends Pipeline[Iterator[Token], Program] {
       fatal("expected: " + (kind::more.toList).mkString(" or ") + ", found: " + currentToken, currentToken)
     }
 
+    //DONE
     def parseGoal: Program = {
-      _MainObject()
-      _ClassDeclaration()
+      val main = _MainObject()
+      val classes = _ClassDeclaration()
       eat(EOF)
+      new Program(main, classes)
     }
 
-    def _MainObject() = {
+
+    //DONE
+    def _MainObject() : MainObject = {
       eat(OBJECT) 
-      _Identifier()
+      val id = _Identifier()
       eat(LBRACE)
       eat(DEF)
       eat(MAIN) 
@@ -57,67 +61,114 @@ object Parser extends Pipeline[Iterator[Token], Program] {
       eat(UNIT) 
       eat(EQSIGN) 
       eat(LBRACE) 
-      _Statement() 
+      val stats = _Statement() 
       eat(RBRACE) 
       eat(RBRACE)
+
+      new MainObject(id, stats)
     }
-    def _ClassDeclaration() = {
-      eat(CLASS) 
-      _Identifier()
-      
-      if(currentToken.kind == EXTENDS){
-        eat(EXTENDS) 
-        _Identifier() 
+
+    //DONE
+    def _ClassDeclaration() : List[ClassDecl] = {
+      //OPTIONAL
+
+      var classes : List[ClassDecl] = Nil
+
+      while(currentToken.kind == CLASS){
+        eat(CLASS) 
+        val id = _Identifier()
+
+        var parent : Option[Identifier] = None
+        if(currentToken.kind == EXTENDS){
+          eat(EXTENDS) 
+          parent = Some(_Identifier()) 
+        }
+
+        eat(LBRACE)
+        val vars = _VarDeclaration() 
+        val methods = _MethodDeclaration() 
+        eat(RBRACE)  
+
+        classes = classes :+ new ClassDecl(id, parent, vars, methods)
       }
 
-      eat(LBRACE) 
-      _VarDeclaration() 
-      _MethodDeclaration() 
-      eat(RBRACE)  
+      classes
     }
-    def _VarDeclaration() = {
+
+    //DONE
+    def _VarDeclaration() : List[VarDecl] = {
       //OPTIONAL
-      if(currentToken.kind == VAR){
+      var vars : List[VarDecl] = Nil
+
+      while(currentToken.kind == VAR){
         eat(VAR) 
-        _Identifier() 
+        val id = _Identifier() 
         eat(COLON)
-        _Type() 
+        val tpe = _Type() 
         eat(SEMICOLON)
+
+        vars = vars :+ new VarDecl(tpe, id)
       }
+
+      vars
     }
-    def _MethodDeclaration() = {
+
+
+    /**
+    MethodDeclaration ::= 
+    def Identifier ( ( Identifier : Type ( , Identifier : Type )* )? ) : Type = { 
+      ( VarDeclaration )* 
+      ( Statement )* 
+      return Expression ; 
+    }
+    **/
+    //DONE
+    def _MethodDeclaration() : List[MethodDecl] = {
       //OPTIONAL
-      if(currentToken.kind == DEF){
+      var methods : List[MethodDecl] = Nil
+
+      while(currentToken.kind == DEF){
         eat(DEF) 
-        _Identifier() 
+        val id = _Identifier() 
         eat(LPAREN)
 
+        var args : List[Formal] = Nil
+
         if(currentToken.kind != RPAREN){
-          _Identifier() 
+          val arg_id = _Identifier() 
           eat(COLON)
-          _Type() 
+          val arg_type = _Type() 
           
+          args = args :+ new Formal(arg_type, arg_id)
+
           while(currentToken.kind == COMMA){
             eat(COMMA) 
-            _Identifier() 
+            val arg_id = _Identifier() 
             eat(COLON) 
-            _Type()
+            val arg_type = _Type()
+            args = args :+ new Formal(arg_type, arg_id)
           }
         }
 
         eat(RPAREN) 
         eat(COLON) 
-        _Type()
+        val retType = _Type()
         eat(EQSIGN) 
         eat(LBRACE)
-        _VarDeclaration() 
-        _Statement()
+        val vars = _VarDeclaration() 
+        val stats = _Statement()
         eat(RETURN) 
-        _Expression()
+        val retExpr = _Expression()
         eat(SEMICOLON) 
         eat(RBRACE)
+
+        methods = methods :+ new MethodDecl(retType, id, args, vars, stats, retExpr)
       }
+
+      methods
     }
+
+    //
     def _Type() = {
       currentToken.kind match {
         case INT => {
@@ -125,15 +176,27 @@ object Parser extends Pipeline[Iterator[Token], Program] {
           if(currentToken.kind == LBRACKET){
             eat(LBRACKET)
             eat(RBRACKET)
+            new IntArrayType()
+          }else{
+            new IntType()
           }
         }  
-        case BOOLEAN => eat(BOOLEAN)
-        case STRING => eat(STRING)
-        case IDKIND => _Identifier()
+        case BOOLEAN => {
+          eat(BOOLEAN)
+          new BooleanType()
+        }
+        case STRING => {
+          eat(STRING)
+          new StringType()
+        }
+        case IDKIND => {
+          _Identifier() 
+        }
         case _ => expected(INT, BOOLEAN, STRING, IDKIND)
       }
     }
-    def _Statement () : Unit = {
+
+    def _Statement () : List[StatTree] = {
       //OPTIONAL
       currentToken.kind match {
         case LBRACE => {
@@ -321,8 +384,11 @@ object Parser extends Pipeline[Iterator[Token], Program] {
 
 
     }
-    def _Identifier  () = {
+    def _Identifier () : Identifier = {
+      val id = currentToken
       eat(IDKIND)
+      val test : ID = id 
+      new Identifier(test.value)
     }
 
     readToken

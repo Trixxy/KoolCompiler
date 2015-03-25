@@ -16,7 +16,7 @@
 [0m[[0minfo[0m] [0mCompiling 1 Scala source to /home/simon/Dropbox/Skolarbete/Kompilator konstruktion/Labbar/compiler-project/koolc/target/scala-2.11/classes...[0m
 [0m[[0mdebug[0m] [0mGetting compiler-interface from component compiler for Scala 2.11.4[0m
 [0m[[0mdebug[0m] [0mGetting compiler-interface from component compiler for Scala 2.11.4[0m
-[0m[[0mdebug[0m] [0mRunning cached compiler 2184e84b, interfacing (CompilerInterface) with Scala compiler version 2.11.4[0m
+[0m[[0mdebug[0m] [0mRunning cached compiler 44d46936, interfacing (CompilerInterface) with Scala compiler version 2.11.4[0m
 [0m[[0mdebug[0m] [0mCalling Scala compiler with arguments  (CompilerInterface):[0m
 [0m[[0mdebug[0m] [0m	-deprecation[0m
 [0m[[0mdebug[0m] [0m	-unchecked[0m
@@ -24,11 +24,41 @@
 [0m[[0mdebug[0m] [0m	/usr/lib/jvm/java-7-openjdk-amd64/jre/lib/resources.jar:/usr/lib/jvm/java-7-openjdk-amd64/jre/lib/rt.jar:/usr/lib/jvm/java-7-openjdk-amd64/jre/lib/sunrsasign.jar:/usr/lib/jvm/java-7-openjdk-amd64/jre/lib/jsse.jar:/usr/lib/jvm/java-7-openjdk-amd64/jre/lib/jce.jar:/usr/lib/jvm/java-7-openjdk-amd64/jre/lib/charsets.jar:/usr/lib/jvm/java-7-openjdk-amd64/jre/lib/rhino.jar:/usr/lib/jvm/java-7-openjdk-amd64/jre/lib/jfr.jar:/usr/lib/jvm/java-7-openjdk-amd64/jre/classes:/home/simon/.ivy2/cache/org.scala-lang/scala-library/jars/scala-library-2.11.4.jar[0m
 [0m[[0mdebug[0m] [0m	-classpath[0m
 [0m[[0mdebug[0m] [0m	/home/simon/Dropbox/Skolarbete/Kompilator konstruktion/Labbar/compiler-project/koolc/target/scala-2.11/classes[0m
-[0m[[31merror[0m] [0m/home/simon/Dropbox/Skolarbete/Kompilator konstruktion/Labbar/compiler-project/koolc/src/main/scala/koolc/ast/Parser.scala:45: type mismatch;[0m
+[0m[[31merror[0m] [0m/home/simon/Dropbox/Skolarbete/Kompilator konstruktion/Labbar/compiler-project/koolc/src/main/scala/koolc/ast/Parser.scala:165: type mismatch;[0m
 [0m[[31merror[0m] [0m found   : Unit[0m
-[0m[[31merror[0m] [0m required: koolc.ast.Trees.Program[0m
-[0m[[31merror[0m] [0m      eat(EOF)[0m
-[0m[[31merror[0m] [0m         ^[0m
-[0m[[31merror[0m] [0mone error found[0m
+[0m[[31merror[0m] [0m required: koolc.ast.Trees.ExprTree[0m
+[0m[[31merror[0m] [0m        methods = methods :+ new MethodDecl(retType, id, args, vars, stats, retExpr)[0m
+[0m[[31merror[0m] [0m                                                                            ^[0m
+[0m[[31merror[0m] [0m/home/simon/Dropbox/Skolarbete/Kompilator konstruktion/Labbar/compiler-project/koolc/src/main/scala/koolc/ast/Parser.scala:205: type mismatch;[0m
+[0m[[31merror[0m] [0m found   : Unit[0m
+[0m[[31merror[0m] [0m required: List[koolc.ast.Trees.StatTree][0m
+[0m[[31merror[0m] [0m          eat(RBRACE)[0m
+[0m[[31merror[0m] [0m             ^[0m
+[0m[[31merror[0m] [0m/home/simon/Dropbox/Skolarbete/Kompilator konstruktion/Labbar/compiler-project/koolc/src/main/scala/koolc/ast/Parser.scala:213: type mismatch;[0m
+[0m[[31merror[0m] [0m found   : Unit[0m
+[0m[[31merror[0m] [0m required: List[koolc.ast.Trees.StatTree][0m
+[0m[[31merror[0m] [0m          if(currentToken.kind == ELSE){[0m
+[0m[[31merror[0m] [0m          ^[0m
+[0m[[31merror[0m] [0m/home/simon/Dropbox/Skolarbete/Kompilator konstruktion/Labbar/compiler-project/koolc/src/main/scala/koolc/ast/Parser.scala:230: type mismatch;[0m
+[0m[[31merror[0m] [0m found   : Unit[0m
+[0m[[31merror[0m] [0m required: List[koolc.ast.Trees.StatTree][0m
+[0m[[31merror[0m] [0m          eat(SEMICOLON)[0m
+[0m[[31merror[0m] [0m             ^[0m
+[0m[[31merror[0m] [0m/home/simon/Dropbox/Skolarbete/Kompilator konstruktion/Labbar/compiler-project/koolc/src/main/scala/koolc/ast/Parser.scala:239: type mismatch;[0m
+[0m[[31merror[0m] [0m found   : Unit[0m
+[0m[[31merror[0m] [0m required: List[koolc.ast.Trees.StatTree][0m
+[0m[[31merror[0m] [0m              eat(SEMICOLON)[0m
+[0m[[31merror[0m] [0m                 ^[0m
+[0m[[31merror[0m] [0m/home/simon/Dropbox/Skolarbete/Kompilator konstruktion/Labbar/compiler-project/koolc/src/main/scala/koolc/ast/Parser.scala:247: type mismatch;[0m
+[0m[[31merror[0m] [0m found   : Unit[0m
+[0m[[31merror[0m] [0m required: List[koolc.ast.Trees.StatTree][0m
+[0m[[31merror[0m] [0m              eat(SEMICOLON)[0m
+[0m[[31merror[0m] [0m                 ^[0m
+[0m[[31merror[0m] [0m/home/simon/Dropbox/Skolarbete/Kompilator konstruktion/Labbar/compiler-project/koolc/src/main/scala/koolc/ast/Parser.scala:390: type mismatch;[0m
+[0m[[31merror[0m] [0m found   : koolc.lexer.Token[0m
+[0m[[31merror[0m] [0m required: koolc.lexer.Tokens.ID[0m
+[0m[[31merror[0m] [0m      val test : ID = id [0m
+[0m[[31merror[0m] [0m                      ^[0m
+[0m[[31merror[0m] [0m7 errors found[0m
 [0m[[0mdebug[0m] [0mCompilation failed (CompilerInterface)[0m
 [0m[[31merror[0m] [0m(compile:[31mcompile[0m) Compilation failed[0m
