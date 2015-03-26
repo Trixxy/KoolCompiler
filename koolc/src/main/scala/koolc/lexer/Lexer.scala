@@ -16,10 +16,18 @@ object Lexer extends Pipeline[File, Iterator[Token]] {
   
     var isEOF = false
     var pos = 0
-    /*var ch: Char = source.next
-    var previousChar: Char = ch
-    var nextChar: Char = ch
-    */
+    
+    /** Store the current token, as read from the lexer. */
+    var currentChar: Char = ' '
+    var nextChar: Char = ' '
+    var peekaboo = false
+
+    if(!source.isEmpty){
+      nextChar = source.next
+      pos = source.pos
+    } else {
+      isEOF = true
+    }
     
     val keywords = Map(
       "object" -> new Token(OBJECT),
@@ -69,48 +77,27 @@ object Lexer extends Pipeline[File, Iterator[Token]] {
         !isEOF
       }
       
-      /** Store the current token, as read from the lexer. */
-      var currentChar: Char = ' '
-      var nextChar: Char = ' '
-      var peekaboo = false
-  
-      def isIgnorable(c: Char) = {
-        c match{
-          case ' ' => true
-          case '\t' => true
-          case '\n' => true
-          case _ => false
-        }
-      }
-      
-      if(!source.isEmpty){
-        nextChar = source.next
-        // skips bad tokens
-        while (isIgnorable(nextChar) && !source.isEmpty) {
-          nextChar = source.next
-        }
-      } else {
-        isEOF = true
-      }
-  
-      def readChar: Unit = {
-        if (!source.isEmpty) {
-          currentChar = nextChar
-          nextChar = source.next
-          
-          while (isIgnorable(nextChar) && !source.isEmpty) {
-            nextChar = source.next
-          }
-        }else if(!peekaboo){
-          currentChar = nextChar
-          nextChar = ' '
-          peekaboo = true
-        } else {
-          isEOF = true
-        }
-      }
-      
       def next = {
+        def readChar: Unit = {
+          if (!source.isEmpty) {
+            currentChar = nextChar
+            nextChar = source.next
+          } else if(!peekaboo){
+            currentChar = nextChar
+            nextChar = ' '
+            peekaboo = true
+            isEOF = true
+          }
+        }
+        def isIgnorable(c: Char) = {
+          c match{
+            case ' ' => true
+            case '\t' => true
+            case '\n' => true
+            case _ => false
+          }
+        }
+
         /* Definition:
          * State      Descr.
          * 0          DEFAULT
@@ -125,10 +112,11 @@ object Lexer extends Pipeline[File, Iterator[Token]] {
         var sb = new StringBuilder
         
         //DETECT STATE:
-        readChar
-        var pos = source.pos
+        pos = source.pos
         
         if(hasNext) {
+          readChar
+
           if(currentChar.isLetter) {
             state = 1
           } else if(currentChar.isDigit) {
@@ -136,164 +124,105 @@ object Lexer extends Pipeline[File, Iterator[Token]] {
           } else if(currentChar == '"') {
             state = 3
           } else if (currentChar == '/' && (nextChar == '/' || nextChar == '*')) {
-            state = 4
+            if(nextChar == '/') {
+              state = 4
+            } else if(nextChar == '*') {
+              state = 5
+            }
+          } else if (isIgnorable(currentChar)) {
+            state = 6
           } else {
-            state = 5
+            state = 7
+          }
+
+          if(state == 1 || state == 2 || state == 7) {
+            sb.append(currentChar)
           }
           
           state match{
             case 1 => {
-              while(currentChar.isLetterOrDigit || currentChar == '_') {
-                sb.append(currentChar)
+              while(nextChar.isLetterOrDigit || nextChar == '_') {
                 readChar
+                sb.append(currentChar)
               }
+
               keywords.get(sb.toString) match {
                 case None => new ID(sb.toString).setPos(f, pos)
                 case Some(res) => res.setPos(f, pos)
               }
             }
             case 2 => {
-              
+              if(currentChar != '0') {
+                while(nextChar.isDigit) {
+                  readChar
+                  sb.append(currentChar)
+                }
+              } 
+
+              new INTLIT(sb.toInt).setPos(f, pos)
             }
             case 3 => {
-              
+              while(nextChar != '"') {
+                readChar
+                sb.append(currentChar)
+              }
+              readChar
+
+              new STRLIT(sb.toString).setPos(f, pos)
             }
             case 4 => {
-              
+              var stop = false
+              while(nextChar != '\n' && hasNext) {
+                readChar
+              }
+              readChar
+
+              next
             }
             case 5 => {
-              
-            }
-            case _ => {
-              new Token(BAD)
-            }
-          }
-        } else {
-          new Token(EOF)
-        }
-        
-        /*
-        var pos = source.pos
-        if(!source.isEmpty) {
-          var b = new StringBuilder
-          
-          //Check if it's white space, tab or newline, then ignore the coming chars
-          //AND check if it's a comment, then ignore the coming chars
-          var doneSkipping = false
-          while(!doneSkipping) {
-            doneSkipping = true
-            while((ch == ' ' || ch == '\t' || ch == '\n') && !source.isEmpty) {
-              ch = source.next
-              doneSkipping = false
-            }
-            
-            if(ch == '/') {
-              pos = source.pos
-              if(!source.isEmpty) {
-                previousChar = ch
-                ch = source.next
-              }
-              if(ch == '/') {
-                doneSkipping = false
-                var stop = false
-                while(ch != '\n' && !stop) {
-                  if(!source.isEmpty) {
-                    ch = source.next
-                  } else {
+              var stop = false
+              while(!stop && hasNext) {
+                readChar
+                if(nextChar == '*') {
+                  readChar
+                  if(nextChar == '/') {
                     stop = true
                   }
                 }
-              } else if(ch == '*') {
-                doneSkipping = false
-                ch = source.next
-                var stop = false
-                while(!stop) {
-                  if(ch == '*') {
-                    ch = source.next
-                    if(ch == '/') {
-                      stop = true
-                    }
-                  }
-                  if(!source.isEmpty) {
-                    ch = source.next
-                  }
-                }
-              } else {
-                nextChar = ch
-                ch = previousChar
-                doneSkipping = true
               }
-            }
-          }
-          
-          if(ch != '/') {
-            pos = source.pos
-          }
-          
-          if(source.isEmpty) {
-            isEOF = true
-            new Token(EOF).setPos(f, pos)
-          } else if(ch.isLetter) {
-            while(ch.isLetterOrDigit || ch == '_') {
-              b.append(ch)
-              ch = source.next
-            }
-            keywords.get(b.toString) match {
-              case None => new ID(b.toString).setPos(f, pos)
-              case Some(res) => res.setPos(f, pos)
-            }
-          } else if(ch.isDigit) {
-            if(ch != '0') {
-              while(ch.isDigit) {
-                b.append(ch)
-                ch = source.next
-              }
-            } else {
-              b.append(ch)
-              ch = source.next
-            }
-            new INTLIT(b.toInt).setPos(f, pos)
-          } else if(ch == '"') {
-            ch = source.next
-            while(ch != '"') {
-              b.append(ch)
-              ch = source.next
-            }
-            ch = source.next
-            new STRLIT(b.toString).setPos(f, pos)
-          } else {
-            b.append(ch)
-            if(ch == '/') {
-              ch = nextChar
-            } else { 
-              ch = source.next
-            }
-            
-            if(ch == '=') {
-              b.append(ch)
-              ch = source.next
-            } else if(ch == '&') {
-              b.append(ch)
-              ch = source.next
-            } else if(ch == '|') {
-              b.append(ch)
-              ch = source.next
-            }
+              readChar
 
-            symbols.get(b.toString) match {
-              case None => new Token(BAD).setPos(f, pos)
-              case Some(res) => res.setPos(f, pos)
+              next
+            }
+            case 6 => {
+              while(isIgnorable(nextChar) && hasNext) {
+                readChar
+              }
+
+              next
+            }
+            case _ => {
+              if(nextChar == '=') {
+                readChar
+                sb.append(currentChar)
+              } else if(nextChar == '&') {
+                readChar
+                sb.append(currentChar)
+              } else if(nextChar == '|') {
+                readChar
+                sb.append(currentChar)
+              }
+
+              symbols.get(sb.toString) match {
+                case None => new Token(BAD).setPos(f, pos)
+                case Some(res) => res.setPos(f, pos)
+              }
             }
           }
         } else {
-          isEOF = true
           new Token(EOF).setPos(f, pos)
         }
-        
-        
-        */
       }
-
     }
   }
 }

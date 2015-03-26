@@ -44,5 +44,18 @@ object Main {
     val program = pipeline.run(ctx)(ctx.file)
     
     println(Printer(program))
+
+    
+    //IF WE WANT TO TEST THE LEXER
+    /*val ctx = processOptions(args)
+
+    val pipeline = Lexer andThen PrintTokens
+
+    val program = pipeline.run(ctx)(ctx.file)
+
+    for(t <- program) {
+      t
+      println()
+    }*/
   }
 }

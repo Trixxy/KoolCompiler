@@ -1,25 +1,4 @@
-object MyMain {
-	def main() : Unit = {
-		if(true){
-			syntax = 1;
-		}
-		else{
-			syntax = 2;
-		}
-		println("Hello World");
-		while(true){
-			syntax = 2 - 2 - 2;
-			myInt = "abc" + 200;
-		}
-	}
-}
-class hejhoo extends haaaaahaaaaa {
-	def func() : string = {
-		return "helloes";
-	}
-}
-
-/*object MyMain{
+object MyMain{
 	def main() : Unit = {
 		
 		if(true) {
@@ -37,8 +16,8 @@ class hejhoo extends haaaaahaaaaa {
         }
     }
 }
- class hejhoo extends haaaaahaaaaa{
+/*class hejhoo extends haaaaahaaaaa{
     	def func(): string = {
     		return "helloes";
     	}
-    }*/
+}*/
