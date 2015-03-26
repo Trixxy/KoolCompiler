@@ -43,22 +43,16 @@ object Parser extends Pipeline[Iterator[Token], Program] {
 
     /** ''Eats'' the expected token, or terminates with an error. */
     def eat(kind: TokenKind): Unit = {
-      print("EAT:")
       if (currentToken.kind == kind) {
-        println("Token")
         readToken
       } else {
-        println("Expected")
         expected(kind)
       }
     }
 
     /** Complains that what was found was not expected. The method accepts arbitrarily many arguments of type TokenKind */
     def expected(kind: TokenKind, more: TokenKind*): Nothing = {
-      println("Expected:Begin")
-      val fatale = fatal("expected: " + (kind::more.toList).mkString(" or ") + ", found: " + currentToken, currentToken)
-      println("Expected:End")
-      fatale
+      fatal("expected: " + (kind::more.toList).mkString(" or ") + ", found: " + currentToken, currentToken)
     }
 
     //DONE
@@ -84,11 +78,8 @@ object Parser extends Pipeline[Iterator[Token], Program] {
       eat(EQSIGN) 
       eat(LBRACE) 
       val stats = _Statement() 
-      println("Operation RBRACE: 0")
       eat(RBRACE) 
-      println("Operation RBRACE: 1")
       eat(RBRACE)
-      println("Operation RBRACE: 2")
       new MainObject(id, stats)
     }
 
@@ -326,11 +317,6 @@ object Parser extends Pipeline[Iterator[Token], Program] {
           val Pattern = """INT\((.+)\)""".r
           val Pattern(value) = num
           eat(INTLITKIND)
-
-          /* TODO: TO BE DELETED */
-          println("int 1: "+value)
-          println("int 2: "+value.toInt)
-
           lhs = new IntLit(value.toInt)
         }
         case STRLITKIND => {
