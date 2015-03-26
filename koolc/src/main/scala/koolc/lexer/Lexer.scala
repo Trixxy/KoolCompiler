@@ -23,7 +23,7 @@ object Lexer extends Pipeline[File, Iterator[Token]] {
       "class" -> new Token(CLASS),
       "def" -> new Token(DEF),
       "var" -> new Token(VAR),
-      "unit" -> new Token(UNIT),
+      "Unit" -> new Token(UNIT),
       "main" -> new Token(MAIN),
       "string" -> new Token(STRING),
       "extends" -> new Token(EXTENDS),
@@ -140,7 +140,12 @@ object Lexer extends Pipeline[File, Iterator[Token]] {
               case Some(res) => res.setPos(f, pos)
             }
           } else if(ch.isDigit) {
-            while(ch.isDigit) {
+            if(ch != '0') {
+              while(ch.isDigit) {
+                b.append(ch)
+                ch = source.next
+              }
+            } else {
               b.append(ch)
               ch = source.next
             }

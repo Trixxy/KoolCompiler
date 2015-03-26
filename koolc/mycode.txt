@@ -1,11 +1,8 @@
-object MyMain{
-    def main() : unit = {
-        println("Hello World");
+object MyMain{def main() : Unit = {}
+
+    /*    println("Hello World");
         while(true) {
             syntax = 2+2+2;
-            myInt = 2 / 2;
-        }
-    }
-    // This is a comment
-}
-
+            myInt = "abc" + 200;;
+        }*/
+// This is a comment
