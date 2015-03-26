@@ -13,11 +13,14 @@ object Lexer extends Pipeline[File, Iterator[Token]] {
     import ctx.reporter._
 
     // Complete this file
+  
     var isEOF = false
-    var ch: Char = source.next
+    var pos = 0
+    /*var ch: Char = source.next
     var previousChar: Char = ch
     var nextChar: Char = ch
-
+    */
+    
     val keywords = Map(
       "object" -> new Token(OBJECT),
       "class" -> new Token(CLASS),
@@ -38,8 +41,7 @@ object Lexer extends Pipeline[File, Iterator[Token]] {
       "false" -> new Token(FALSE),
       "this" -> new Token(THIS),
       "new" -> new Token(NEW),
-      "println" -> new Token(PRINTLN)     
-    )
+      "println" -> new Token(PRINTLN))
     val symbols = Map(
       ":" -> new Token(COLON),
       ";" -> new Token(SEMICOLON),
@@ -60,15 +62,117 @@ object Lexer extends Pipeline[File, Iterator[Token]] {
       "+" -> new Token(PLUS),
       "-" -> new Token(MINUS),
       "*" -> new Token(TIMES),
-      "/" -> new Token(DIV)
-    ) 
+      "/" -> new Token(DIV))
 
     new Iterator[Token] {
       def hasNext = {
         !isEOF
       }
-
+      
+      /** Store the current token, as read from the lexer. */
+      var currentChar: Char = ' '
+      var nextChar: Char = ' '
+      var peekaboo = false
+  
+      def isIgnorable(c: Char) = {
+        c match{
+          case ' ' => true
+          case '\t' => true
+          case '\n' => true
+          case _ => false
+        }
+      }
+      
+      if(!source.isEmpty){
+        nextChar = source.next
+        // skips bad tokens
+        while (isIgnorable(nextChar) && !source.isEmpty) {
+          nextChar = source.next
+        }
+      } else {
+        isEOF = true
+      }
+  
+      def readChar: Unit = {
+        if (!source.isEmpty) {
+          currentChar = nextChar
+          nextChar = source.next
+          
+          while (isIgnorable(nextChar) && !source.isEmpty) {
+            nextChar = source.next
+          }
+        }else if(!peekaboo){
+          currentChar = nextChar
+          nextChar = ' '
+          peekaboo = true
+        } else {
+          isEOF = true
+        }
+      }
+      
       def next = {
+        /* Definition:
+         * State      Descr.
+         * 0          DEFAULT
+         * 1          ID
+         * 2          INT
+         * 3          STRING
+         * 4          SYMBOL
+         * 5          COMMENT
+         */
+        
+        var state = 0
+        var sb = new StringBuilder
+        
+        //DETECT STATE:
+        readChar
+        var pos = source.pos
+        
+        if(hasNext) {
+          if(currentChar.isLetter) {
+            state = 1
+          } else if(currentChar.isDigit) {
+            state = 2
+          } else if(currentChar == '"') {
+            state = 3
+          } else if (currentChar == '/' && (nextChar == '/' || nextChar == '*')) {
+            state = 4
+          } else {
+            state = 5
+          }
+          
+          state match{
+            case 1 => {
+              while(currentChar.isLetterOrDigit || currentChar == '_') {
+                sb.append(currentChar)
+                readChar
+              }
+              keywords.get(sb.toString) match {
+                case None => new ID(sb.toString).setPos(f, pos)
+                case Some(res) => res.setPos(f, pos)
+              }
+            }
+            case 2 => {
+              
+            }
+            case 3 => {
+              
+            }
+            case 4 => {
+              
+            }
+            case 5 => {
+              
+            }
+            case _ => {
+              new Token(BAD)
+            }
+          }
+        } else {
+          new Token(EOF)
+        }
+        
+        /*
         var pos = source.pos
         if(!source.isEmpty) {
           var b = new StringBuilder
@@ -107,11 +211,10 @@ object Lexer extends Pipeline[File, Iterator[Token]] {
                   if(ch == '*') {
                     ch = source.next
                     if(ch == '/') {
-                      ch = source.next
                       stop = true
                     }
                   }
-                  if(!stop) {
+                  if(!source.isEmpty) {
                     ch = source.next
                   }
                 }
@@ -186,7 +289,11 @@ object Lexer extends Pipeline[File, Iterator[Token]] {
           isEOF = true
           new Token(EOF).setPos(f, pos)
         }
+        
+        
+        */
       }
+
     }
   }
 }

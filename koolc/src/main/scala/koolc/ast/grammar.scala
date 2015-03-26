@@ -1,5 +1,5 @@
-/*
-Goal	::=	MainObject ( ClassDeclaration )* <EOF>
+
+/*Goal	::=	MainObject ( ClassDeclaration )* <EOF>
 MainObject	::=	object Identifier { def main ( ) : Unit = { ( Statement )* } }
 ClassDeclaration	::=	class Identifier ( extends Identifier )? { ( VarDeclaration )* ( MethodDeclaration )* }
 VarDeclaration	::=	var Identifier : Type ;
@@ -30,5 +30,4 @@ Expression	::=	Expression ( && | || | == | < | + | - | * | / ) Expression
 			  | ! Expression
 			  | ( Expression )
 Identifier	::=	<IDENTIFIER>
-
 */

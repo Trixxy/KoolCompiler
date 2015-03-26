@@ -1,8 +1,44 @@
-object MyMain{def main() : Unit = {}
+object MyMain {
+	def main() : Unit = {
+		if(true){
+			syntax = 1;
+		}
+		else{
+			syntax = 2;
+		}
+		println("Hello World");
+		while(true){
+			syntax = 2 - 2 - 2;
+			myInt = "abc" + 200;
+		}
+	}
+}
+class hejhoo extends haaaaahaaaaa {
+	def func() : string = {
+		return "helloes";
+	}
+}
 
-    /*    println("Hello World");
+/*object MyMain{
+	def main() : Unit = {
+		
+		if(true) {
+			syntax = 1;
+		}
+		else {
+			syntax = 2;
+		}
+	
+	    println("Hello World");
         while(true) {
-            syntax = 2+2+2;
-            myInt = "abc" + 200;;
-        }*/
-// This is a comment
+        	// This is a comment
+            syntax = 2-(2-2);
+            myInt = "abc" + 200;
+        }
+    }
+}
+ class hejhoo extends haaaaahaaaaa{
+    	def func(): string = {
+    		return "helloes";
+    	}
+    }*/

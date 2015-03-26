@@ -492,7 +492,6 @@ object Parser extends Pipeline[Iterator[Token], Program] {
 
     readToken
     val tree = parseGoal
-    println("Tree parsed completly")
     terminateIfErrors
     tree
   }

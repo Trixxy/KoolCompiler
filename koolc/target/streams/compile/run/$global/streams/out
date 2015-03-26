@@ -1,4 +1,4 @@
-[0m[[0minfo[0m] [0mRunning koolc.Main mycode.txt[0m
+[0m[[0minfo[0m] [0mRunning koolc.Main [0m
 [0m[[0mdebug[0m] [0mWaiting for threads to exit or System.exit to be called.[0m
 [0m[[0mdebug[0m] [0m  Classpath:[0m
 [0m[[0mdebug[0m] [0m	C:\Users\alfarhan\Desktop\VT2015\DD2488\project\compiler-project\koolc\target\scala-2.11\classes[0m

@@ -42,7 +42,7 @@ object Main {
     val pipeline = Lexer andThen Parser
 
     val program = pipeline.run(ctx)(ctx.file)
-
+    
     println(Printer(program))
   }
 }
