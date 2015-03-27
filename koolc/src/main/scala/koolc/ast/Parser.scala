@@ -307,6 +307,9 @@ object Parser extends Pipeline[Iterator[Token], Program] {
 
     } //Func
 
+
+
+/* TODO TO BE DELETED; KEPT JUST FOR REFERENCE UNDER TESTING
     def _Expression  () : ExprTree = {
 
       //FACTOR
@@ -480,134 +483,246 @@ object Parser extends Pipeline[Iterator[Token], Program] {
         case _ => lhs
       }
     }
+*/
 
 
-
-
-
-
-
-
-
-
-
-
-
-    def _Expression2  () : ExprTree = {
+    def _Expression  () : ExprTree = {
       
 //    --> Expr || AndTerm
 //      | AndTerm 
       def _Expr() : ExprTree = {
-        val expr = _AndTerm()
-        if (currentToken == OR){
+        var expr : ExprTree = _AndTerm()
+
+//      --> || AndTerm Expr_prime
+//        | ɛ
+        while(currentToken.kind == OR){
           eat(OR)
-          new Or(expr, _AndTerm())
-        }else expr
+          expr = new Or(expr, _AndTerm())
+        }
+
+        expr
       }
 
 //    --> AndTerm && RelExpr
 //      | RelExpr
       def _AndTerm() : ExprTree = {
-//        case AND => {
+        var expr : ExprTree = _RelExpr()
 
-        // &&
+//      --> && RelTerm AndTerm_prime
+//        | ɛ
+        while(currentToken.kind == AND){
+          eat(AND)
+          expr = new AND(expr, _RelExpr())
+        }
+
+        expr
       }
 
 //    --> RelExpr < NumExpr
-//        RelExpr = NumExpr
+//      | RelExpr = NumExpr
 //      | NumExpr
       def _RelExpr() : ExprTree = {
-//        case EQUALS => {
-//        case LESSTHAN => {
+        var expr : ExprTree = _NumExpr()
+
+//      --> = NumExpr RelExpr_prime
+//        | < NumExpr RelExpr_prime
+//        | ɛ
+        while(currentToken.kind == EQUALS || currentToken.kind == LESSTHAN){
+          currentToken.kind match{
+            case EQUALS => {
+              eat(EQUALS)
+              expr = new Equals(expr, _NumExpr())
+            }
+            case LESSTHAN => {
+              eat(LESSTHAN)
+              expr = new LessThan(expr, _NumExpr())
+            }
+          } 
+        }
+
+        expr
       }
 
 //    --> NumExpr + Term 
 //      | NumExpr - Term
 //      | Term
       def _NumExpr() : ExprTree = {
-//        case PLUS => {
-//        case MINUS => {
+        var expr : ExprTree = _Term()
+
+//      --> + Term NumExpr_prime
+//        | - Term NumExpr_prime
+//        | ɛ
+        while(currentToken.kind == PLUS || currentToken.kind == MINUS){
+          currentToken.kind match{
+            case PLUS => {
+              eat(PLUS)
+              expr = new Plus(expr, _Term())
+            }
+            case MINUS => {
+              eat(MINUS)
+              expr = new Minus(expr, _Term())
+            }
+        }
+
+        expr
       }
 
 //    --> Term * Value 
 //      | Term / Value
 //      | Value
       def _Term() : ExprTree = {
-//        case TIMES => {
-//        case DIV => {                
+        var expr : ExprTree = _Value()
+
+//      --> * Term NumExpr_prime
+//        | / Term NumExpr_prime
+//        | ɛ
+        while(currentToken.kind == TIMES || currentToken.kind == DIV){
+          currentToken.kind match{
+            case TIMES => {
+              eat(TIMES)
+              expr = new Times(expr, _Value())
+            }
+            case DIV => {
+              eat(DIV)
+              expr = new Div(expr, _Value())
+            }
+        }
+
+        expr
       }
 
 //    --> ! Factor
 //      | Factor      
       def _Value() : ExprTree = {
+        var expr : ExprTree = _Factor()
 
-        // !
+//      --> ! Value_prime
+//        | ɛ
+        while(currentToken.kind == BANG){
+          eat(BANG)
+          expr = new Not(expr, _Factor())
+        }
+
+        expr
       }
 
 //    --> 
       def _Factor() : ExprTree = {
+        var expr : ExprTree = null //Place holder
+
         currentToken.kind match{
           case INTLITKIND => {
-            
+            val num = currentToken.toString
+            val Pattern = """INT\((.+)\)""".r
+            val Pattern(value) = num
+            eat(INTLITKIND)
+
+            expr = new IntLit(value.toInt)
           }
           case STRLITKIND => {
-            
+            val str = currentToken.toString
+            val Pattern = """STR\((.+)\)""".r
+            val Pattern(value) = str
+            eat(STRLITKIND)
+
+            expr = new StringLit(value)
           }
           case TRUE => {
-            
+            eat(TRUE)
+
+            expr = new True()
           }
           case FALSE => {
-            
+            eat(FALSE)
+
+            expr = new False()
           }
           case IDKIND => {
-            
+            _Identifier()
           }
           case THIS => {
-            
+            eat(THIS)
+
+            expr = new This()
           }
           case NEW => {
+            eat(NEW)
             
-          }
-          case INT => {
-            
-          }
-          case IDKIND => {
-            
-          }
+            currentToken.kind match{
+              case INT => {
+                eat(INT) 
+                eat(LBRACKET) 
+                val size = _Expr()
+                eat(RBRACKET)
+
+                expr = new NewIntArray(size)
+              }
+              case IDKIND => {
+                val tpe = _Identifier() 
+                eat(LPAREN) 
+                eat(RPAREN)
+
+                expr = new New(tpe)
+              }
+              case _ => expected(INT, IDKIND)
+            } //match whether int or id
+          } //case: NEW
+          
           case LPAREN => { 
-            
+            eat(LPAREN)
+            expr = _Expr()
+            eat(RPAREN)
           }
-        }
-        
-        /*
-        
 
-        case LBRACKET => {
-        case DOT => {
-            case LENGTH => {
-            case IDKIND => {
-        */
-        
-        
-        /*
-        Expression [ Expression ]
-        Expression . length
-        Expression . Identifier ( ( Expression ( , Expression )* )? )
-        <INTEGER_LITERAL>
-        " <STRING_LITERAL> "
-        true
-        false
-        Identifier
-        this
-        new Int [ Expression ]
-        new Identifier ( )
-        ! Expression
-        ( Expression )
-        */
-        
+          case _ => expected(INTLITKIND, STRLITKIND, TRUE, FALSE, IDKIND, THIS, NEW, LPAREN)
+        } //MegaFactor Match
 
+        //Match whether expandable
 
-      }
+        currentToken.kind match{
+          case LBRACKET => {
+            eat(LBRACKET) 
+            val index = _Expr() 
+            eat(RBRACKET)
+
+            expr = new ArrayRead(expr, index)
+          }
+          case DOT => {
+            eat(DOT)
+            currentToken.kind match{
+              case LENGTH => {
+                eat(LENGTH)
+
+                expr = new ArrayLength(expr)
+              }
+              case IDKIND => {
+                val meth = _Identifier()
+                eat(LPAREN) 
+
+                //GET OUT THE ARGUMENTS IF ANY
+                var args : List[ExprTree] = Nil
+                if(currentToken.kind == INTLITKIND ||  currentToken.kind == STRLITKIND ||  currentToken.kind == TRUE ||  currentToken.kind == FALSE ||  currentToken.kind == IDKIND ||  currentToken.kind == THIS ||  currentToken.kind == NEW ||  currentToken.kind == LPAREN ||  currentToken.kind == BANG){
+                  args = args :+ _Expr()
+                  while(currentToken.kind == COMMA){
+                    eat(COMMA)
+                    args = args :+ _Expr()
+                  }
+                }
+
+                eat(RPAREN)
+
+                expr = new MethodCall(expr, meth, args)
+              }
+              case _ => expected(DOT, IDKIND)
+            }//match after dot
+          }//match for dot
+        }//optional match for expandables
+
+        expr
+
+      } //Factor
+
+      _Expr()
       
     }
 
