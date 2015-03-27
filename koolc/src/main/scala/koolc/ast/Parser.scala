@@ -481,6 +481,145 @@ object Parser extends Pipeline[Iterator[Token], Program] {
       }
     }
 
+
+
+
+
+
+
+
+
+
+
+
+
+    def _Expression2  () : ExprTree = {
+      
+//    --> Expr || AndTerm
+//      | AndTerm 
+      def _Expr() : ExprTree = {
+        val expr = _AndTerm()
+        if (currentToken == OR){
+          eat(OR)
+          new Or(expr, _AndTerm())
+        }else expr
+      }
+
+//    --> AndTerm && RelExpr
+//      | RelExpr
+      def _AndTerm() : ExprTree = {
+//        case AND => {
+
+        // &&
+      }
+
+//    --> RelExpr < NumExpr
+//        RelExpr = NumExpr
+//      | NumExpr
+      def _RelExpr() : ExprTree = {
+//        case EQUALS => {
+//        case LESSTHAN => {
+      }
+
+//    --> NumExpr + Term 
+//      | NumExpr - Term
+//      | Term
+      def _NumExpr() : ExprTree = {
+//        case PLUS => {
+//        case MINUS => {
+      }
+
+//    --> Term * Value 
+//      | Term / Value
+//      | Value
+      def _Term() : ExprTree = {
+//        case TIMES => {
+//        case DIV => {                
+      }
+
+//    --> ! Factor
+//      | Factor      
+      def _Value() : ExprTree = {
+
+        // !
+      }
+
+//    --> 
+      def _Factor() : ExprTree = {
+        currentToken.kind match{
+          case INTLITKIND => {
+            
+          }
+          case STRLITKIND => {
+            
+          }
+          case TRUE => {
+            
+          }
+          case FALSE => {
+            
+          }
+          case IDKIND => {
+            
+          }
+          case THIS => {
+            
+          }
+          case NEW => {
+            
+          }
+          case INT => {
+            
+          }
+          case IDKIND => {
+            
+          }
+          case LPAREN => { 
+            
+          }
+        }
+        
+        /*
+        
+
+        case LBRACKET => {
+        case DOT => {
+            case LENGTH => {
+            case IDKIND => {
+        */
+        
+        
+        /*
+        Expression [ Expression ]
+        Expression . length
+        Expression . Identifier ( ( Expression ( , Expression )* )? )
+        <INTEGER_LITERAL>
+        " <STRING_LITERAL> "
+        true
+        false
+        Identifier
+        this
+        new Int [ Expression ]
+        new Identifier ( )
+        ! Expression
+        ( Expression )
+        */
+        
+
+
+      }
+      
+    }
+
+
+
+
+
+
+
+
+
+
     //DONE
     def _Identifier () : Identifier = {
       val id : String = currentToken.toString
