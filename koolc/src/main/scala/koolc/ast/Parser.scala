@@ -596,13 +596,14 @@ object Parser extends Pipeline[Iterator[Token], Program] {
 //    --> ! Factor
 //      | Factor      
       def _Value() : ExprTree = {
-        var expr : ExprTree = _Factor()
-
+        var expr : ExprTree = null
 //      --> ! Value_prime
 //        | ɛ
-        while(currentToken.kind == BANG){
+        if(currentToken.kind == BANG){
           eat(BANG)
-          expr = new Not(expr)
+          expr = new Not(_Value())
+        }else{
+          expr = _Factor()
         }
 
         expr
@@ -727,14 +728,6 @@ object Parser extends Pipeline[Iterator[Token], Program] {
       _Expr()
       
     }
-
-
-
-
-
-
-
-
 
 
     //DONE
