@@ -36,10 +36,10 @@ object Lexer extends Pipeline[File, Iterator[Token]] {
       "var" -> new Token(VAR),
       "Unit" -> new Token(UNIT),
       "main" -> new Token(MAIN),
-      "string" -> new Token(STRING),
+      "String" -> new Token(STRING),
       "extends" -> new Token(EXTENDS),
-      "int" -> new Token(INT),
-      "boolean" -> new Token(BOOLEAN),
+      "Int" -> new Token(INT),
+      "Bool" -> new Token(BOOLEAN),
       "while" -> new Token(WHILE),
       "if" -> new Token(IF),
       "else" -> new Token(ELSE),
@@ -87,6 +87,7 @@ object Lexer extends Pipeline[File, Iterator[Token]] {
             nextChar = ' '
             peekaboo = true
             isEOF = true
+            println("Fliepp?!")
           }
         }
         def isIgnorable(c: Char) = {

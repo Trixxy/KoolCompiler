@@ -77,16 +77,16 @@ object Printer {
         sb.append(Printer(tpe))
       }
       case IntArrayType() => {
-        sb.append("int[]")
+        sb.append("Int[]")
       }
       case IntType() => {
-        sb.append("int")
+        sb.append("Int")
       }
       case BooleanType() => {
-        sb.append("boolean")
+        sb.append("Bool")
       }
       case StringType() => {
-        sb.append("string")
+        sb.append("String")
       }
       case Block(stats: List[StatTree]) => {
         sb.append("{\n")
@@ -239,7 +239,7 @@ object Printer {
         sb.append("this")
       }
       case NewIntArray(size: ExprTree) => {
-        sb.append(" new int[")
+        sb.append(" new Int[")
         sb.append(Printer(size))
         sb.append("]")
       }

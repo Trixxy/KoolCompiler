@@ -16,11 +16,12 @@ object MyMain{
         }
         */
         
-        myInt = !(2+3)*4;
+        myInt = (4+3).hello(mannen,4,"fliepp", myint);
     }
 }
-/*class hejhoo extends haaaaahaaaaa{
-    	def func(): string = {
-    		return "helloes";
-    	}
-}*/
+
+class hejhoo extends haaaaahaaaaa{
+	def func(): string = {
+		return "helloes";
+	}
+}

@@ -449,7 +449,7 @@ object Parser extends Pipeline[Iterator[Token], Program] {
           }
           case STRLITKIND => {
             val str = currentToken.toString
-            val Pattern = """STR\((.+)\)""".r
+            val Pattern = """STR\((.*)\)""".r
             val Pattern(value) = str
             eat(STRLITKIND)
 
@@ -466,7 +466,7 @@ object Parser extends Pipeline[Iterator[Token], Program] {
             expr = new False()
           }
           case IDKIND => {
-            _Identifier()
+            expr = _Identifier()
           }
           case THIS => {
             eat(THIS)
@@ -506,46 +506,48 @@ object Parser extends Pipeline[Iterator[Token], Program] {
         } //MegaFactor Match
 
         //Match whether expandable
+        var expand = true
+        while(expand){
+          currentToken.kind match{
+            case LBRACKET => {
+              eat(LBRACKET) 
+              val index = _Expr() 
+              eat(RBRACKET)
 
-        currentToken.kind match{
-          case LBRACKET => {
-            eat(LBRACKET) 
-            val index = _Expr() 
-            eat(RBRACKET)
+              expr = new ArrayRead(expr, index)
+            }
+            case DOT => {
+              eat(DOT)
+              currentToken.kind match{
+                case LENGTH => {
+                  eat(LENGTH)
 
-            expr = new ArrayRead(expr, index)
-          }
-          case DOT => {
-            eat(DOT)
-            currentToken.kind match{
-              case LENGTH => {
-                eat(LENGTH)
-
-                expr = new ArrayLength(expr)
-              }
-              case IDKIND => {
-                val meth = _Identifier()
-                eat(LPAREN) 
-
-                //GET OUT THE ARGUMENTS IF ANY
-                var args : List[ExprTree] = Nil
-                if(currentToken.kind == INTLITKIND ||  currentToken.kind == STRLITKIND ||  currentToken.kind == TRUE ||  currentToken.kind == FALSE ||  currentToken.kind == IDKIND ||  currentToken.kind == THIS ||  currentToken.kind == NEW ||  currentToken.kind == LPAREN ||  currentToken.kind == BANG){
-                  args = args :+ _Expr()
-                  while(currentToken.kind == COMMA){
-                    eat(COMMA)
-                    args = args :+ _Expr()
-                  }
+                  expr = new ArrayLength(expr)
                 }
+                case IDKIND => {
+                  val meth = _Identifier()
+                  eat(LPAREN) 
 
-                eat(RPAREN)
+                  //GET OUT THE ARGUMENTS IF ANY
+                  var args : List[ExprTree] = Nil
+                  if(currentToken.kind == INTLITKIND ||  currentToken.kind == STRLITKIND ||  currentToken.kind == TRUE ||  currentToken.kind == FALSE ||  currentToken.kind == IDKIND ||  currentToken.kind == THIS ||  currentToken.kind == NEW ||  currentToken.kind == LPAREN ||  currentToken.kind == BANG){
+                    args = args :+ _Expr()
+                    while(currentToken.kind == COMMA){
+                      eat(COMMA)
+                      args = args :+ _Expr()
+                    }
+                  }
 
-                expr = new MethodCall(expr, meth, args)
-              }
-              case _ => expected(DOT, IDKIND)
-            }//match after dot     
-          }//match for dot
-          case _ => {}
-        }//optional match for expandables
+                  eat(RPAREN)
+
+                  expr = new MethodCall(expr, meth, args)
+                }
+                case _ => expected(DOT, IDKIND)
+              }//match after dot     
+            }//case dot
+            case _ => expand = false
+          }//optional match for expandables
+        }
 
         expr
 
