@@ -1,1 +1,11 @@
-/bin/
+!mycode.txt
+!koolc_2.11*
+!cafebabe*
+!testprograms/*
+!testprograms/lab2/*
+!testprograms/lab3/*
+!testprograms/lab2/valid/*
+!testprograms/lab3/valid/*
+!testprograms/lab2/invalid/*
+!testprograms/lab3/invalid/*
+!src/*
