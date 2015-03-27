@@ -1,6 +1,6 @@
 object MyMain{
 	def main() : Unit = {
-		
+		/*
 		if(true) {
 			syntax = 1;
 		}
@@ -14,6 +14,9 @@ object MyMain{
             syntax = 2-(2-2);
             myInt = "abc" + 200;
         }
+        */
+        
+        myInt = (2+3)*4;
     }
 }
 /*class hejhoo extends haaaaahaaaaa{

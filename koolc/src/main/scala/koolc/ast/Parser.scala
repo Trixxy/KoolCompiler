@@ -308,184 +308,6 @@ object Parser extends Pipeline[Iterator[Token], Program] {
     } //Func
 
 
-
-/* TODO TO BE DELETED; KEPT JUST FOR REFERENCE UNDER TESTING
-    def _Expression  () : ExprTree = {
-
-      //FACTOR
-      var lhs : ExprTree = null
-      currentToken.kind match{
-        case INTLITKIND => {
-          val num = currentToken.toString
-          val Pattern = """INT\((.+)\)""".r
-          val Pattern(value) = num
-          eat(INTLITKIND)
-          lhs = new IntLit(value.toInt)
-        }
-        case STRLITKIND => {
-          val str = currentToken.toString
-          val Pattern = """STR\((.+)\)""".r
-          val Pattern(value) = str
-          eat(STRLITKIND)
-
-          lhs = new StringLit(value)
-        }
-        case TRUE => {
-          eat(TRUE)
-
-          lhs = new True()
-        }
-        case FALSE => {
-          eat(FALSE)
-
-          lhs = new False()
-        } 
-        case IDKIND => {
-          lhs = _Identifier()
-        }
-        case THIS => {
-          eat(THIS)
-
-          lhs = new This()
-        }
-        case NEW => {
-          eat(NEW)
-          currentToken.kind match{
-            case INT => {
-              eat(INT) 
-              eat(LBRACKET) 
-              val size = _Expression() 
-              eat(RBRACKET)
-
-              lhs = new NewIntArray(size)
-            }
-            case IDKIND => {
-              val tpe = _Identifier() 
-              eat(LPAREN) 
-              eat(RPAREN)
-
-              lhs = new New(tpe)
-            }
-            case _ => expected(INT, IDKIND)
-          }          
-        }
-        case BANG => {
-          eat(BANG)
-          val expr = _Expression()
-
-          lhs = new Not(expr)
-        }
-        case LPAREN => {
-          eat(LPAREN)
-          lhs = _Expression()
-          eat(RPAREN)
-        }
-        case _ => expected(INTLITKIND, STRLITKIND, TRUE, FALSE, IDKIND, THIS, NEW, BANG, LPAREN)      
-
-      }
-
-
-
-      //EXTENDABLES
-
-
-
-      currentToken.kind match{
-        case AND => {
-          eat(AND)
-          val rhs = _Expression()
-
-          new And(lhs, rhs)
-        }  
-        case OR => {
-          eat(OR)
-          val rhs = _Expression()
-
-          new Or(lhs: ExprTree, rhs: ExprTree)
-        }  
-        case EQUALS => {
-          eat(EQUALS)
-          val rhs = _Expression()
-
-          new Equals(lhs, rhs)
-        }  
-        case LESSTHAN => {
-          eat(LESSTHAN)
-          val rhs = _Expression()
-
-          new LessThan(lhs, rhs)
-        }  
-        case PLUS => {
-          eat(PLUS)
-          val rhs = _Expression()
-
-          new Plus(lhs, rhs)
-        }  
-        case MINUS => {
-          eat(MINUS)
-          val rhs = _Expression()
-
-          new Minus(lhs, rhs)
-        }  
-        case TIMES => {
-          eat(TIMES)
-          val rhs = _Expression()
-
-          new Times(lhs, rhs)
-        }  
-        case DIV => {
-          eat(DIV)
-          val rhs = _Expression()
-
-          new Div(lhs, rhs)
-        }
-
-        case LBRACKET => {
-          eat(LBRACKET) 
-          val index = _Expression() 
-          eat(RBRACKET)
-
-          new ArrayRead(lhs, index)
-        }
-
-        case DOT => {
-          eat(DOT)
-          currentToken.kind match{
-            case LENGTH => {
-              eat(LENGTH)
-
-              new ArrayLength(lhs)
-            }
-            
-            case IDKIND => {
-              val meth = _Identifier()
-              eat(LPAREN) 
-
-              var args : List[ExprTree] = Nil
-
-              if(currentToken.kind == INTLITKIND ||  currentToken.kind == STRLITKIND ||  currentToken.kind == TRUE ||  currentToken.kind == FALSE ||  currentToken.kind == IDKIND ||  currentToken.kind == THIS ||  currentToken.kind == NEW ||  currentToken.kind == BANG ||  currentToken.kind == LPAREN){
-                args = args :+ _Expression()
-                while(currentToken.kind == COMMA){
-                  eat(COMMA)
-                  args = args :+ _Expression()
-                }
-              }
-              eat(RPAREN)
-
-              new MethodCall(lhs, meth, args)
-            }
-
-            case _ => expected(LENGTH, IDKIND)
-
-          } 
-                             
-        }
-        case _ => lhs
-      }
-    }
-*/
-
-
     def _Expression  () : ExprTree = {
       
 //    --> Expr || AndTerm
@@ -537,6 +359,7 @@ object Parser extends Pipeline[Iterator[Token], Program] {
               eat(LESSTHAN)
               expr = new LessThan(expr, _NumExpr())
             }
+            case _ => {}
           } 
         }
 
@@ -562,6 +385,7 @@ object Parser extends Pipeline[Iterator[Token], Program] {
               eat(MINUS)
               expr = new Minus(expr, _Term())
             }
+            case _ => {}
           }
         }
 
@@ -587,6 +411,7 @@ object Parser extends Pipeline[Iterator[Token], Program] {
               eat(DIV)
               expr = new Div(expr, _Value())
             }
+            case _ => {}
           }
         }
 
@@ -717,8 +542,9 @@ object Parser extends Pipeline[Iterator[Token], Program] {
                 expr = new MethodCall(expr, meth, args)
               }
               case _ => expected(DOT, IDKIND)
-            }//match after dot
+            }//match after dot     
           }//match for dot
+          case _ => {}
         }//optional match for expandables
 
         expr
