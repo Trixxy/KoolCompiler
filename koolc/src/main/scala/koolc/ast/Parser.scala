@@ -512,7 +512,7 @@ object Parser extends Pipeline[Iterator[Token], Program] {
 //        | ɛ
         while(currentToken.kind == AND){
           eat(AND)
-          expr = new AND(expr, _RelExpr())
+          expr = new And(expr, _RelExpr())
         }
 
         expr
@@ -562,6 +562,7 @@ object Parser extends Pipeline[Iterator[Token], Program] {
               eat(MINUS)
               expr = new Minus(expr, _Term())
             }
+          }
         }
 
         expr
@@ -586,6 +587,7 @@ object Parser extends Pipeline[Iterator[Token], Program] {
               eat(DIV)
               expr = new Div(expr, _Value())
             }
+          }
         }
 
         expr
@@ -600,7 +602,7 @@ object Parser extends Pipeline[Iterator[Token], Program] {
 //        | ɛ
         while(currentToken.kind == BANG){
           eat(BANG)
-          expr = new Not(expr, _Factor())
+          expr = new Not(expr)
         }
 
         expr
