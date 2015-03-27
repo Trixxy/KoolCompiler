@@ -16,7 +16,7 @@ object MyMain{
         }
         */
         
-        myInt = (2+3)*4;
+        myInt = !(2+3)*4;
     }
 }
 /*class hejhoo extends haaaaahaaaaa{

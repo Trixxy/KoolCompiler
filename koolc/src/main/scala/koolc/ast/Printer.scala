@@ -4,7 +4,7 @@ package ast
 import Trees._
 
 object Printer {
-  def apply(t: Tree, depth: Int = 0): String = {
+  /*def apply(t: Tree, depth: Int = 0): String = {
     var sb = new StringBuilder
     t match {
       case Program(main: MainObject, classes: List[ClassDecl]) => {
@@ -139,44 +139,60 @@ object Printer {
         sb.append(";\n")
       }
       case And(lhs: ExprTree, rhs: ExprTree) => {
+        sb.append('(')
         sb.append(Printer(lhs))
         sb.append(" && ")
         sb.append(Printer(rhs))
+        sb.append(')')
       }
       case Or(lhs: ExprTree, rhs: ExprTree) => {
+        sb.append('(')
         sb.append(Printer(lhs))
         sb.append(" || ")
         sb.append(Printer(rhs))
+        sb.append(')')
       }
       case Plus(lhs: ExprTree, rhs: ExprTree) => {
+        sb.append('(')
         sb.append(Printer(lhs))
         sb.append(" + ")
         sb.append(Printer(rhs))
+        sb.append(')')
       }
       case Minus(lhs: ExprTree, rhs: ExprTree) => {
+        sb.append('(')
         sb.append(Printer(lhs))
         sb.append(" - ")
         sb.append(Printer(rhs))
+        sb.append(')')
       }
       case Times(lhs: ExprTree, rhs: ExprTree) => {
+        sb.append('(')
         sb.append(Printer(lhs))
         sb.append(" * ")
         sb.append(Printer(rhs))
+        sb.append(')')
       }
       case Div(lhs: ExprTree, rhs: ExprTree) => {
+        sb.append('(')
         sb.append(Printer(lhs))
         sb.append(" / ")
         sb.append(Printer(rhs))
+        sb.append(')')
       }
       case LessThan(lhs: ExprTree, rhs: ExprTree) => {
+        sb.append('(')
         sb.append(Printer(lhs))
         sb.append(" < ")
         sb.append(Printer(rhs))
+        sb.append(')')
       }
       case Equals(lhs: ExprTree, rhs: ExprTree) => {
+        sb.append('(')
         sb.append(Printer(lhs))
         sb.append(" == ")
         sb.append(Printer(rhs))
+        sb.append(')')
       }
       case ArrayRead(arr: ExprTree, index: ExprTree) => {
         sb.append(Printer(arr))
@@ -232,10 +248,13 @@ object Printer {
         sb.append(Printer(tpe))
       }
       case Not(expr: ExprTree) => {
-        sb.append("!")
+        sb.append("!(")
         sb.append(Printer(expr))
+        sb.append(')')
       }
     }
+    
+  
 
     def expandList(list: List[Tree], depth: Int): String = {
       var sb = new StringBuilder
@@ -256,7 +275,12 @@ object Printer {
     }
 
     sb.toString
+  }*/
+  
+  def apply(t: Tree, depth: Int = 0): String = {
+    t.toString
   }
+  
 }
 
 
