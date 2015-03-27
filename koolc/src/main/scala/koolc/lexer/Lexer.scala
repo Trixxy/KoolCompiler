@@ -101,12 +101,13 @@ object Lexer extends Pipeline[File, Iterator[Token]] {
 
         /* Definition:
          * State      Descr.
-         * 0          DEFAULT
          * 1          ID
          * 2          INT
          * 3          STRING
-         * 4          SYMBOL
-         * 5          COMMENT
+         * 4          COMMENT //
+         * 5          COMMENT /* */
+         * 6          IgnorableChars
+         * 7          SYMBOL
          */
         
         var state = 0

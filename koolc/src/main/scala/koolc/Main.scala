@@ -37,17 +37,17 @@ object Main {
 
 
   def main(args: Array[String]) {
-    /*val ctx = processOptions(args)
+    val ctx = processOptions(args)
 
     val pipeline = Lexer andThen Parser
 
     val program = pipeline.run(ctx)(ctx.file)
     
-    println(Printer(program))*/
+    println(Printer(program))
 
     
     //IF WE WANT TO TEST THE LEXER
-    val ctx = processOptions(args)
+    /*val ctx = processOptions(args)
 
     val pipeline = Lexer andThen PrintTokens
 
@@ -56,6 +56,6 @@ object Main {
     for(t <- program) {
       t
       println()
-    }
+    }*/
   }
 }
