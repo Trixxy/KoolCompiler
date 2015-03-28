@@ -5,6 +5,8 @@ import utils._
 import scala.io.Source
 import java.io.File
 
+/* Lexer consists of an Iterator of Tokens. */
+
 object Lexer extends Pipeline[File, Iterator[Token]] {
   import Tokens._
 
@@ -13,8 +15,7 @@ object Lexer extends Pipeline[File, Iterator[Token]] {
     import ctx.reporter._
 
     // Complete this file
-
-/*  
+  
     var isEOF = false
     var pos = 0
     
@@ -22,55 +23,15 @@ object Lexer extends Pipeline[File, Iterator[Token]] {
     var currentChar: Char = ' '
     var nextChar: Char = ' '
     var peekaboo = false
+    var currentIsEmpty = false
 
+    //Initialize the nextChar
     if(!source.isEmpty){
       nextChar = source.next
       pos = source.pos
-    } else {
-      isEOF = true
-    }
-*/
-
-    /**
-    Read Mechanics
-    **/
-    var sp : Array[Char] = Array(' ',' ') //stream pointer
-    var ps : Array[Boolean] = Array(false, false) //pointer set
-    var sp_pos : Array[Int] = Array(0, 0)
-    var eof_delivered = false //a flag to indicate whether eof have been signaled 
-    
-    def isCurrentEmpty = !ps(0)
-    def isNextEmpty = !ps(1)
-    def isPeekNext(sym: Char) = ps(1) && (sym == sp(1))
-    def isPeekCurrent(sym: Char) = ps(0) && (sym == sp(0))
-    def peekCurrent = if(!isCurrentEmpty) sp(0); else throw new NoSuchElementException
-    def peekNext = if(ps(1)) sp(1); else throw new NoSuchElementException
-    def getCurrentPos = sp_pos(0)
-    def popCurrent: Char = {
-      if(isCurrentEmpty) throw new NoSuchElementException
-
-      val ret = sp(0)
-      if(ps(1)){
-        sp(0) = sp(1)
-        sp_pos(0) = sp_pos(1)
-        if(source.isEmpty) ps(1) = false
-        else {sp(1) = source.next; sp_pos(1) = source.pos;}
-      } else ps(0) = ps(1)
-      ret
     }
     
-    for(i <- 0 to 1){
-      if(!source.isEmpty){
-        sp(i) = source.next
-        ps(i) = true
-        sp_pos(i) = source.pos
-      }else if(i == 1){
-        sp_pos(i) = sp_pos(i-1)
-      }
-    }
-    
-    //END OF READ MECHANICS
-    
+    // All keywords mapped to their specified Token
     val keywords = Map(
       "object" -> new Token(OBJECT),
       "class" -> new Token(CLASS),
@@ -92,6 +53,7 @@ object Lexer extends Pipeline[File, Iterator[Token]] {
       "this" -> new Token(THIS),
       "new" -> new Token(NEW),
       "println" -> new Token(PRINTLN))
+    // All symbols mapped to their specified Token
     val symbols = Map(
       ":" -> new Token(COLON),
       ";" -> new Token(SEMICOLON),
@@ -115,12 +77,35 @@ object Lexer extends Pipeline[File, Iterator[Token]] {
       "/" -> new Token(DIV))
 
     new Iterator[Token] {
+      /* False iff last token returned was EOF
+       * True otherwise
+       */
       def hasNext = {
-        !isCurrentEmpty || !eof_delivered
+        !isEOF
       }
-      
+ 
+      /* The next call will return a new Token based on what the next read
+       * char from the filestream is.
+       */
       def next = {
-        def isIgnorable(c: Char) : Boolean = {
+        // Reads next char 
+        def readChar: Unit = {
+          //If nextChar can be set as source.next
+          if (!source.isEmpty) {
+            currentChar = nextChar
+            nextChar = source.next
+          //else will set currentChar = nextChar
+          //and say that there are no more chars to be read
+          //for the next readChar call.
+          } else if(!peekaboo){
+            currentChar = nextChar
+            nextChar = ' '
+            peekaboo = true
+            currentIsEmpty = true
+          }
+        }
+        //Returns a Bool of if c is an ignorable char
+        def isIgnorable(c: Char) = {
           c match{
             case ' ' => true
             case '\t' => true
@@ -129,135 +114,143 @@ object Lexer extends Pipeline[File, Iterator[Token]] {
           }
         }
 
-        def lexID() : Token = {
-          var sb = new StringBuilder
-          val t_pos = getCurrentPos
-          
-          while((peekCurrent.isLetterOrDigit || isPeekCurrent('_')) && !isCurrentEmpty) {
-            sb.append(popCurrent)
-          }
-
-          val str = sb.toString
-
-          keywords.get(str) match {
-            case None => new ID(str).setPos(f, t_pos)
-            case Some(res) => res.setPos(f, t_pos)
-          }
-        }
-
-        def lexInt(): Token = {
-          var sb = new StringBuilder
-          val t_pos = getCurrentPos
-          
-          if(!isPeekCurrent('0')) {
-            while(peekCurrent.isDigit && !isCurrentEmpty) {
-              sb.append(popCurrent)
-            }
-          }else{
-            sb.append(popCurrent)
-          }
-
-          new INTLIT(sb.toInt).setPos(f, t_pos)
-        }
-
-        def lexStr(): Token = {
-          var sb = new StringBuilder
-          val t_pos = getCurrentPos
-          
-          if(isPeekCurrent('"')) popCurrent //No failsafe; depends on user
-          while(!isPeekCurrent('"') && !isPeekCurrent('\n') && !isCurrentEmpty) {
-            sb.append(popCurrent)
-          }
-
-          if(isCurrentEmpty){
-            new Token(BAD).setPos(f, t_pos)
-          }else{ /* VERY SENSITIVE CODE; DON'T EDIT; */
-            if(popCurrent == '\n'){
-              new Token(BAD).setPos(f, t_pos)
-            }else{
-              new STRLIT(sb.toString).setPos(f, t_pos)
-            }
-          }
-
-        }
-
-        def lexSLC() {
-          while(!isPeekCurrent('\n') && !isCurrentEmpty){
-            popCurrent
-          }
-        }
-
-        def lexMLC() = {
-          //OBS: no failsafe
-          if(isPeekCurrent('/')) popCurrent
-          if(isPeekCurrent('*')) popCurrent
-          while(!(isPeekCurrent('*') && isPeekNext('/')) && !isCurrentEmpty){
-            popCurrent
-          }
-        }
-
-        def lexSym(): Token = {
-          val t_pos = getCurrentPos
-          var ret = new Token(BAD).setPos(f, t_pos)
-          
-          val one : String = peekCurrent.toString
-          if(symbols.contains(one)){
-            popCurrent
-            ret = symbols.getOrElse(one, new Token(BAD)).setPos(f, t_pos)
-          }
-          if(!isCurrentEmpty){
-            val two = one + peekCurrent.toString
-            if(symbols.contains(two)){
-              ret = symbols.getOrElse(two, new Token(BAD)).setPos(f, t_pos)
-            }
-          }
-          
-          ret
-        }
-
-        def lexIgnored() {
-          while(isIgnorable(peekCurrent) && !isCurrentEmpty){
-            popCurrent
-          }
-        }
+        /* Definition:
+         * State      Descr.
+         * 1          ID or keyword
+         * 2          INT
+         * 3          STRING
+         * 4          COMMENT //
+         * 5          COMMENT /* */
+         * 6          IgnorableChars
+         * 7          SYMBOL or BAD
+         */
         
+        var state = 0
+        var sb = new StringBuilder
         
-        //START RUNNING NEXT
+        pos = source.pos
+        
+        //Do as long as last char hasn't been read.
+        //Otherwise return new Token(EOF)
+        if(!currentIsEmpty) {
+          //DETECT STATE:
+          readChar
 
-        //Get rid of junk
-        if(!isCurrentEmpty){
-          var nonTokens = true
-          while(nonTokens){
-            if(isIgnorable(peekCurrent)){
-              lexIgnored()
-            } else if (isPeekCurrent('/') && !isNextEmpty && isPeekNext('/')) {
-            lexSLC()
-          } else if (isPeekCurrent('/') && !isNextEmpty && isPeekNext('*')) {
-              lexMLC()
-            } else {
-              nonTokens = false
+          if(currentChar.isLetter) {
+            state = 1
+          } else if(currentChar.isDigit) {
+            state = 2
+          } else if(currentChar == '"') {
+            state = 3
+          } else if (currentChar == '/' && (nextChar == '/' || nextChar == '*')) {
+            if(nextChar == '/') {
+              state = 4
+            } else if(nextChar == '*') {
+              state = 5
             }
-          }
-        }
-        
-        //Start lexing next token
-        if(!isCurrentEmpty){
-          if(peekCurrent.isLetter) {
-            lexID()
-          } else if(peekCurrent.isDigit) {
-            lexInt()
-          } else if(isPeekCurrent('"')) {
-            lexStr()
+          } else if (isIgnorable(currentChar)) {
+            state = 6
           } else {
-            lexSym()
+            state = 7
           }
 
-        }else{ //Returns EOF as many times as the user requires (by design)
-          eof_delivered = true
-          new Token(EOF).setPos(f, sp_pos(1)+1)
+          if(state == 1 || state == 2 || state == 7) {
+            sb.append(currentChar)
+          }
+          
+          state match{
+            //ID or Keyword
+            case 1 => {
+              while(nextChar.isLetterOrDigit || nextChar == '_') {
+                readChar
+                sb.append(currentChar)
+              }
+
+              keywords.get(sb.toString) match {
+                case None => new ID(sb.toString).setPos(f, pos)
+                case Some(res) => res.setPos(f, pos)
+              }
+            }
+            //INT
+            case 2 => {
+              if(currentChar != '0') {
+                while(nextChar.isDigit) {
+                  readChar
+                  sb.append(currentChar)
+                }
+              } 
+
+              new INTLIT(sb.toInt).setPos(f, pos)
+            }
+            //STRING
+            case 3 => {
+              while(nextChar != '"') {
+                readChar
+                sb.append(currentChar)
+              }
+              readChar
+
+              new STRLIT(sb.toString).setPos(f, pos)
+            }
+            // COMMENT //
+            case 4 => {
+              var stop = false
+              while(nextChar != '\n' && !source.isEmpty) {
+                readChar
+              }
+              readChar
+
+              next
+            }
+            // COMMENT /* */
+            case 5 => {
+              var stop = false
+              while(!stop && !source.isEmpty) {
+                readChar
+                if(nextChar == '*') {
+                  readChar
+                  if(nextChar == '/') {
+                    stop = true
+                  }
+                }
+              }
+              readChar
+
+              next
+            }
+            //IgnorableChar ' ' or '\t' or '\n'
+            case 6 => {
+              while(isIgnorable(nextChar) && !source.isEmpty) {
+                readChar
+              }
+
+              next
+            }
+            //SYMBOL or BAD
+            case _ => {
+                if(currentChar == '=' && nextChar == '=') {
+                  readChar
+                  sb.append(currentChar)
+                } else if(currentChar == '&' && nextChar == '&') {
+                  readChar
+                  sb.append(currentChar)
+                } else if(currentChar == '|' && nextChar == '|') {
+                  readChar
+                  sb.append(currentChar)
+                }
+
+              symbols.get(sb.toString) match {
+                case None => new Token(BAD).setPos(f, pos)
+                case Some(res) => res.setPos(f, pos)
+              }
+            }
+          }
+        //The hasNext will now return false and a new Token(EOF) is returned
+        } else {
+          isEOF = true
+          new Token(EOF).setPos(f, pos)
         }
-        
-      } // Lexer.run.new Iterator.next
-    } //Lexer.run.new Iterator
-  } // Lexer.run
-} // Lexer
+      }
+    }
+  }
+}

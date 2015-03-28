@@ -3,8 +3,12 @@ package ast
 
 import Trees._
 
+/* This is our Pretty Printer.
+ * It's pretty self explanatory.
+ */
+
 object Printer {
-  /*def apply(t: Tree, depth: Int = 0): String = {
+  def apply(t: Tree, depth: Int = 0): String = {
     var sb = new StringBuilder
     t match {
       case Program(main: MainObject, classes: List[ClassDecl]) => {
@@ -246,6 +250,7 @@ object Printer {
       case New(tpe: Identifier) => {
         sb.append(" new ")
         sb.append(Printer(tpe))
+        sb.append("()")
       }
       case Not(expr: ExprTree) => {
         sb.append("!(")
@@ -275,11 +280,11 @@ object Printer {
     }
 
     sb.toString
-  }*/
-  
-  def apply(t: Tree, depth: Int = 0): String = {
-    t.toString
   }
+  
+  /*def apply(t: Tree, depth: Int = 0): String = {
+    t.toString
+  }*/
   
 }
 

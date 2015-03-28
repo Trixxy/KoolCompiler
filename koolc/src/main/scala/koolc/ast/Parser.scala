@@ -6,6 +6,13 @@ import Trees._
 import lexer._
 import lexer.Tokens._
 
+/* The Parser is a code representation of the language KOOLs grammar.
+ * If a program is written according to the grammar, it will return
+ * a Tree of the program
+ * If a program is NOT written according to the grammar, it will output
+ * an error message of what the problem is.
+ */
+
 object Parser extends Pipeline[Iterator[Token], Program] {
   def run(ctx: Context)(tokens: Iterator[Token]): Program = {
     import ctx.reporter._
@@ -15,6 +22,7 @@ object Parser extends Pipeline[Iterator[Token], Program] {
     var nextToken: Token = new Token(BAD)
     var peekaboo = false
 
+    //Initialize the nextToken
     if(tokens.hasNext){
       nextToken = tokens.next
       // skips bad tokens
@@ -23,6 +31,7 @@ object Parser extends Pipeline[Iterator[Token], Program] {
       }
     }
 
+    //Reads next Token
     def readToken: Unit = {
       if (tokens.hasNext) {
         // uses nextToken from the Lexer trait
@@ -34,6 +43,8 @@ object Parser extends Pipeline[Iterator[Token], Program] {
         while (nextToken.kind == BAD && tokens.hasNext) {
           nextToken = tokens.next
         }
+      //If no more tokens can be read to nextToken
+      //This occurs only once
       }else if(!peekaboo){
         currentToken = nextToken
         nextToken = new Token(BAD)
@@ -55,7 +66,10 @@ object Parser extends Pipeline[Iterator[Token], Program] {
       fatal("expected: " + (kind::more.toList).mkString(" or ") + ", found: " + currentToken, currentToken)
     }
 
-    //DONE
+    /**
+    Goal ::= MainObject ( ClassDeclaration )* <EOF>
+    }
+    **/
     def parseGoal: Program = {
       val main = _MainObject()
       val classes = _ClassDeclaration()
@@ -63,8 +77,9 @@ object Parser extends Pipeline[Iterator[Token], Program] {
       new Program(main, classes)
     }
 
-
-    //DONE
+    /**
+    MainObject ::= object Identifier { def main ( ) : Unit = { ( Statement )* } }
+    **/
     def _MainObject() : MainObject = {
       eat(OBJECT) 
       val id = _Identifier()
@@ -83,12 +98,15 @@ object Parser extends Pipeline[Iterator[Token], Program] {
       new MainObject(id, stats)
     }
 
-    //DONE
+    /**
+    ClassDeclaration ::= class Identifier ( extends Identifier )? { ( VarDeclaration )* ( MethodDeclaration )* }
+    **/
     def _ClassDeclaration() : List[ClassDecl] = {
       //OPTIONAL
 
       var classes : List[ClassDecl] = Nil
 
+      //Do for every CLASS declaration
       while(currentToken.kind == CLASS){
         eat(CLASS) 
         val id = _Identifier()
@@ -110,11 +128,14 @@ object Parser extends Pipeline[Iterator[Token], Program] {
       classes
     }
 
-    //DONE
+    /**
+    VarDeclaration ::= var Identifier : Type ;
+    **/
     def _VarDeclaration() : List[VarDecl] = {
       //OPTIONAL
       var vars : List[VarDecl] = Nil
 
+      //Do for every VAR declaration 
       while(currentToken.kind == VAR){
         eat(VAR) 
         val id = _Identifier() 
@@ -137,11 +158,11 @@ object Parser extends Pipeline[Iterator[Token], Program] {
       return Expression ; 
     }
     **/
-    //DONE
     def _MethodDeclaration() : List[MethodDecl] = {
       //OPTIONAL
       var methods : List[MethodDecl] = Nil
 
+      //Do for every METHOD declaration
       while(currentToken.kind == DEF){
         eat(DEF) 
         val id = _Identifier() 
@@ -183,7 +204,13 @@ object Parser extends Pipeline[Iterator[Token], Program] {
       methods
     }
 
-    //DONE
+    /**
+    Type  ::= Int [ ]
+            | Bool
+            | Int
+            | String
+            | Identifier
+    **/
     def _Type() = {
       currentToken.kind match {
         case INT => {
@@ -224,11 +251,13 @@ object Parser extends Pipeline[Iterator[Token], Program] {
 
       var stats : List[StatTree] = Nil
 
+      //Do for every STATEMENT
       while(currentToken.kind == LBRACE || currentToken.kind == IF || currentToken.kind == WHILE || currentToken.kind == PRINTLN ||
         (currentToken.kind == IDKIND && (nextToken.kind == EQSIGN || nextToken.kind == LBRACKET))){
         stats = stats :+ one_Statement()
       } //While
 
+      //Representation of ONE STATEMENT
       def one_Statement () : StatTree = {
         currentToken.kind match {
           case LBRACE => {
@@ -308,6 +337,22 @@ object Parser extends Pipeline[Iterator[Token], Program] {
     } //Func
 
 
+    /**
+    Expression  ::= Expression ( && | || | == | < | + | - | * | / ) Expression
+            | Expression [ Expression ]
+            | Expression . length
+            | Expression . Identifier ( ( Expression ( , Expression )* )? )
+            | <INTEGER_LITERAL>
+            | " <STRING_LITERAL> "
+            | true
+            | false
+            | Identifier
+            | this
+            | new Int [ Expression ]
+            | new Identifier ( )
+            | ! Expression
+            | ( Expression )
+    **/
     def _Expression  () : ExprTree = {
       
 //    --> Expr || AndTerm
@@ -557,8 +602,9 @@ object Parser extends Pipeline[Iterator[Token], Program] {
       
     }
 
-
-    //DONE
+    /**
+    Identifier  ::= <IDENTIFIER>
+    **/
     def _Identifier () : Identifier = {
       val id : String = currentToken.toString
       eat(IDKIND)
@@ -574,16 +620,3 @@ object Parser extends Pipeline[Iterator[Token], Program] {
   }
 
 }
-/*
-
-      currentToken match {
-      case A => // compare x to A, because of the uppercase
-      case b => // assign x to b
-      case `b` => // compare x to b, because of the backtick
-      case _ => error()
-    }
-
-*/
-
-/****************************************************************/
-

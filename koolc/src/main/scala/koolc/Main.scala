@@ -37,7 +37,7 @@ object Main {
 
 
   def main(args: Array[String]) {
-    zval ctx = processOptions(args)
+    val ctx = processOptions(args)
 
     val pipeline = Lexer andThen Parser
 
