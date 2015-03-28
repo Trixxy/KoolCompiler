@@ -1,5 +1,10 @@
 
-/*Goal	::=	MainObject ( ClassDeclaration )* <EOF>
+/*
+
+This is just a copy of the grammar, for reference
+
+
+Goal	::=	MainObject ( ClassDeclaration )* <EOF>
 MainObject	::=	object Identifier { def main ( ) : Unit = { ( Statement )* } }
 ClassDeclaration	::=	class Identifier ( extends Identifier )? { ( VarDeclaration )* ( MethodDeclaration )* }
 VarDeclaration	::=	var Identifier : Type ;
