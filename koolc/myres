@@ -1,8 +1,0 @@
-[0m[[0minfo[0m] [0mLoading project definition from /home/simon/Dropbox/Skolarbete/Kompilator konstruktion/Labbar/compiler-project/koolc/project[0m
-[0m[[0minfo[0m] [0mSet current project to koolc (in build file:/home/simon/Dropbox/Skolarbete/Kompilator%20konstruktion/Labbar/compiler-project/koolc/)[0m
-[0m[[0minfo[0m] [0mRunning koolc.Main testprograms/lab3/valid/ComplexNumbers.kool[0m
-java.lang.RuntimeException: Nonzero exit code: 1
-	at scala.sys.package$.error(package.scala:27)
-[0m[[31mtrace[0m] [0mStack trace suppressed: run [34mlast compile:run[0m for the full output.[0m
-[0m[[31merror[0m] [0m(compile:[31mrun[0m) Nonzero exit code: 1[0m
-[0m[[31merror[0m] [0mTotal time: 1 s, completed Mar 27, 2015 6:00:44 PM[0m
