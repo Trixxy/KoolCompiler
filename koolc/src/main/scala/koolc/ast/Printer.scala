@@ -13,6 +13,9 @@ object Printer {
     t match {
       case Program(main: MainObject, classes: List[ClassDecl]) => {
         sb.append(Printer(main))
+        sb.append(main.getSymbol.name+"#"+main.getSymbol.id)
+       
+        
         sb.append(expandList(classes, depth))
       }
       case MainObject(id: Identifier, stats: List[StatTree]) => {
