@@ -35,26 +35,28 @@ object Symbols {
 
   class GlobalScope {
     var mainClass: ClassSymbol = _
-    var classes = Map[String,ClassSymbol]()
+    var classes = Map[String, ClassSymbol]()
 
     def lookupClass(n: String): Option[ClassSymbol] = classes.get(n)
   }
 
   class ClassSymbol(val name: String) extends Symbol {
     var parent: Option[ClassSymbol] = None
-    var methods = Map[String,MethodSymbol]()
-    var members = Map[String,VariableSymbol]()
+    var methods = Map[String, MethodSymbol]()
+    var members = Map[String, VariableSymbol]()
 
-    def lookupMethod(n: String): Option[MethodSymbol] = {
+    def lookupMethod(n: String, recursive: Boolean = true): Option[MethodSymbol] = {
       def parentChildCheck(currentClass: Option[ClassSymbol]): Option[MethodSymbol] = {
         currentClass match {
           case None => None
           case Some(res) => res.lookupMethod(n)
         }
       }
-      
+
       methods.get(n) match {
-        case None => parentChildCheck(parent)
+        case None => {
+          if(recursive) parentChildCheck(parent) else None
+        }
         case Some(res) => methods.get(n)
       }
     }
@@ -65,7 +67,7 @@ object Symbols {
           case Some(res) => res.lookupVar(n)
         }
       }
-      
+
       members.get(n) match {
         case None => parentChildCheck(parent)
         case Some(res) => members.get(n)
@@ -74,20 +76,21 @@ object Symbols {
   }
 
   class MethodSymbol(val name: String, val classSymbol: ClassSymbol) extends Symbol {
-    var params = Map[String,VariableSymbol]()
-    var members = Map[String,VariableSymbol]()
+    var params = Map[String, VariableSymbol]()
+    var members = Map[String, VariableSymbol]()
     var argList: List[VariableSymbol] = Nil
-    var overridden : Option[MethodSymbol] = None
+    var overridden: Option[MethodSymbol] = None
 
-    def lookupVar(n: String): Option[VariableSymbol] = {
-      members.get(n) match {
+    //value, may_shadow
+    def lookupVar(n: String): (Option[VariableSymbol], Boolean) = {
+      params.get(n) match {
         case None => {
-          params.get(n) match {
-            case None => classSymbol.lookupVar(n)
-            case Some(res) => params.get(n)
+          members.get(n) match {
+          	case None => (classSymbol.lookupVar(n), false)
+            case Some(res) => (members.get(n), true) //if a member - may shadow params
           }
         }
-        case Some(res) => members.get(n)
+        case Some(res) => (params.get(n), true) // if param, may shadow other
       }
     }
   }
