@@ -107,7 +107,7 @@ object NameAnalysis extends Pipeline[Program, Program] {
       //MainObject(id: Identifier, stats: List[StatTree]) extends Tree with Symbolic[ClassSymbol]
       def _MainObject(main: MainObject) = {
         main.setSymbol(gs.mainClass)
-        main.stats.foreach(s => _Statement(s, gs.mainClass.methods.getOrElse("main", null)))
+        main.stats.foreach(s => _Statement(s, new MethodSymbol(null, null)))
       }
 
       //ClassDecl(id: Identifier, parent: Option[Identifier], vars: List[VarDecl], methods: List[MethodDecl])
@@ -211,6 +211,9 @@ object NameAnalysis extends Pipeline[Program, Program] {
             _Expression(expr, ms)
           }
           case Assign(id: Identifier, expr: ExprTree) => {
+            if(ms.name == null) {
+              error("Undeclared identifier: "+ id.value)
+            }
         	ms.lookupVar(id.value) match {
         	  case (None, _) => error("'" + id.value + "' was not declared in this scope at " + id.position)
         	  case (Some(var_ref), _) => {
@@ -220,6 +223,9 @@ object NameAnalysis extends Pipeline[Program, Program] {
         	}
           }
           case ArrayAssign(id: Identifier, index: ExprTree, expr: ExprTree) => {
+            if(ms.name == null) {
+              error("Undeclared identifier: "+ id.value)
+            }
             ms.lookupVar(id.value) match {
               case (None, _) => error("'" + id.value + "' was not declared in this scope at " + id.position)
               case (Some(var_ref), _) => {
@@ -232,8 +238,8 @@ object NameAnalysis extends Pipeline[Program, Program] {
         }
       }
 
-      def _Expression(expr: ExprTree, ms: Symbol) : MethodSymbol = {
-        var local_ms = ms
+      def _Expression(expr: ExprTree, ms: MethodSymbol) : ClassSymbol = {
+        var newClass : ClassSymbol = null
         expr match {
 		  case And(lhs: ExprTree, rhs: ExprTree) => {
 		    _Expression(lhs, ms)
@@ -275,12 +281,14 @@ object NameAnalysis extends Pipeline[Program, Program] {
 		    _Expression(arr, ms)
 		  }
 		  case MethodCall(obj: ExprTree, meth: Identifier, args: List[ExprTree]) => {
-		    _Expression(obj, ms)
-		    ms.classSymbol.lookupMethod(meth.value) match {
+		    _Expression(obj, ms).lookupMethod(meth.value) match {
 		      case None => error("'" + meth.value + "' was not declared in this scope at " + meth.position)
-		      case Some(method_ref) => meth.setSymbol(method_ref)
+		      case Some(method_ref) => {
+		        meth.setSymbol(method_ref)
+		        args.foreach(a => _Expression(a, method_ref))
+		      }
 		    }
-		    args.foreach(a => _Expression(a, ms))
+		    
 		  }
 		  case IntLit(value: Int) => {
 		    
@@ -296,7 +304,10 @@ object NameAnalysis extends Pipeline[Program, Program] {
 		    
 		  }
 		  case Identifier(value: String) => {
-		    
+		    ms.classSymbol.lookupVar(value) match {
+		      case (None, _) => error("'" + value + "' was not declared in this scope")
+		      case (Some(class_ref), _) => newClass = class_ref.
+		    }
 		  }
 		
 		  case This() => {
@@ -308,7 +319,7 @@ object NameAnalysis extends Pipeline[Program, Program] {
 		  case New(tpe: Identifier) => {
 		    gs.lookupClass(tpe.value) match {
 		      case None => error("'" + tpe.value + "' was not declared in this scope at " + tpe.position)
-		      case Some(class_ref) => {tpe.setSymbol(class_ref); local_ms = gs.lookupClass(tpe.value)}
+		      case Some(class_ref) => { tpe.setSymbol(class_ref); newClass = class_ref; }
 		    }
 		  }
 		  case Not(expr: ExprTree) => {
@@ -316,7 +327,7 @@ object NameAnalysis extends Pipeline[Program, Program] {
 		  }
         }
         
-        local_ms
+        if(newClass != null) newClass else ms.classSymbol
       }
     }
 

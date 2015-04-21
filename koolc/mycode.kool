@@ -9,13 +9,19 @@ class B extends A {
     value = 42;
     return value;
   }
+  def another(): Int = {
+    
+    return 1;
+  }
 }
 
 class A {
   var value: Int;
+  var test : A;
   def foo(): Int = {
     var value: Bool;
     value = false;
+    value = test.another();
     return 41;
   }
 }
