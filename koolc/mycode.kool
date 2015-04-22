@@ -1,13 +1,31 @@
-object Example {
+object B {
   def main(): Unit = {
     println(new B().foo());
   }
 }
 
-class B extends A {
+class C extends B {}
+
+class B{
+  var value: Int;
+  var test : A;
   def foo(): Int = {
+    var value: Bool;
+    value = false;
+    //value = test.another();
+    return 41;
+  }
+}
+
+class A {
+  def foo(): Int = {
+    //var value : Int;
+    //var value : Int;
     value = 42;
     return value;
+  }
+  def fliepp(): Int = {
+    return 1;
   }
   def another(): Int = {
     
@@ -15,13 +33,3 @@ class B extends A {
   }
 }
 
-class A {
-  var value: Int;
-  var test : A;
-  def foo(): Int = {
-    var value: Bool;
-    value = false;
-    value = test.another();
-    return 41;
-  }
-}

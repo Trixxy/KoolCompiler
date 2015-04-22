@@ -82,15 +82,18 @@ object Symbols {
     var overridden: Option[MethodSymbol] = None
 
     //value, may_shadow
-    def lookupVar(n: String): (Option[VariableSymbol], Boolean) = {
+    // 0 - Is ClassMembers
+    // 1 - Is MethodMembers
+    // 2 - Is MethodParam
+    def lookupVar(n: String): (Option[VariableSymbol], Int) = {
       params.get(n) match {
         case None => {
           members.get(n) match {
-          	case None => (classSymbol.lookupVar(n), false)
-            case Some(res) => (members.get(n), true) //if a member - may shadow params
+          	case None => (classSymbol.lookupVar(n), 0)
+            case Some(res) => (members.get(n), 1) //if a member - may shadow params
           }
         }
-        case Some(res) => (params.get(n), true) // if param, may shadow other
+        case Some(res) => (params.get(n), 2) // if param, may shadow other
       }
     }
   }

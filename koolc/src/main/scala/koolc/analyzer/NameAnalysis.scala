@@ -44,26 +44,30 @@ object NameAnalysis extends Pipeline[Program, Program] {
 
       //MainObject(id: Identifier, stats: List[StatTree]) extends Tree with Symbolic[ClassSymbol]
       def _MainObject(main: MainObject) = {
-        gs.mainClass = new ClassSymbol(main.id.value)
-        gs.mainClass.methods += "main" -> new MethodSymbol("main", gs.mainClass)
+        gs.mainClass = new ClassSymbol(main.id.value).setPos(main.id)
+//        gs.mainClass.methods += "main" -> new MethodSymbol("main", gs.mainClass).setPos(main) //TODO Don't give IDID 
       }
 
       //ClassDecl(id: Identifier, parent: Option[Identifier], vars: List[VarDecl], methods: List[MethodDecl])
       def _ClassDeclaration(c: ClassDecl): ClassSymbol = {
         //    	gs.classes = new Map[String,ClassSymbol]
 
+        if(c.id.value == gs.mainClass.name){
+          error("Class " + c.id.value + " has the same name as the main class.", c.id)
+        }
+        
         gs.lookupClass(c.id.value) match {
           case None => {}
-          case Some(res) => error("class '" + c.id.value + "' is defined twice. First definition here: " + res.position)
+          case Some(res) => error("Class " + c.id.value + " is defined more than once. First definition here: " + res.position, c.id)
         }
+        
+        var cls = new ClassSymbol(c.id.value).setPos(c)
 
-        var cls = new ClassSymbol(c.id.value)
-
-        c.vars.foreach(v => cls.members += v.id.value -> new VariableSymbol(v.id.value)) //List[VarDecl]
+        c.vars.foreach(v => cls.members += v.id.value -> new VariableSymbol(v.id.value).setPos(v.id)) //List[VarDecl]
         for(m <- c.methods) {
           cls.lookupMethod(m.id.value, false) match {
             case None => cls.methods += m.id.value -> _MethodDeclaration(m, cls)
-            case _ => error("method '" + m.id.value + "' is defined twice. First definition here: " + m.position)
+            case _ => error("method '" + m.id.value + "' is defined twice. First definition here: ", m)
           }
         } //List[MethodDecl])
 
@@ -72,22 +76,23 @@ object NameAnalysis extends Pipeline[Program, Program] {
 
       //MethodDecl(retType: TypeTree, id: Identifier, args: List[Formal], vars: List[VarDecl], stats: List[StatTree], retExpr: ExprTree)
       def _MethodDeclaration(m: MethodDecl, cls: ClassSymbol): MethodSymbol = {
-        var ms = new MethodSymbol(m.id.value, cls)
+        var ms = new MethodSymbol(m.id.value, cls).setPos(m)
 
         for(a <- m.args) {
           ms.lookupVar(a.id.value) match {
-            case (_, true) => error("Parameter '" + a.id.value + "' is defined twice.") //TODO POSITION
-            case (_, false) => {
-              ms.params += a.id.value -> new VariableSymbol(a.id.value) 
-              ms.argList = ms.argList :+ new VariableSymbol(a.id.value)
+            case (_, 2) => error("Parameter name " + a.id.value + " is used twice in " + m.id.value + ".", a)
+            case (_, 0) => {
+              ms.params += a.id.value -> new VariableSymbol(a.id.value).setPos(a.id)
+              ms.argList = ms.argList :+ new VariableSymbol(a.id.value).setPos(a.id)
             }
           }
         } // Map[String,VariableSymbol]()
         
         for(v <- m.vars) {
           ms.lookupVar(v.id.value) match {
-            case (_, true) => error("Variable '" + v.id.value + "' is defined twice or shadowed, your pick.") //TODO POSITION
-            case (_, false) => ms.members += v.id.value -> new VariableSymbol(v.id.value)
+            case (_, 2) => error("Declaration of " + v.id.value + " as local shadows method parameter of the same name.", v.id) //TODO POSITION
+            case (Some(firstDecl), 1) => error(v.id.value + " is declared more than once. First declaration here: "+ firstDecl.position) //TODO POSITION
+            case (_, 0) => ms.members += v.id.value -> new VariableSymbol(v.id.value).setPos(v.id)
           }
         }
         
@@ -125,16 +130,42 @@ object NameAnalysis extends Pipeline[Program, Program] {
 
         c.parent match {
           case None => {}
-          case Some(res) => {
-          	gs.lookupClass(res.value) match {
-          	  case None => error("extends a non-existing class '"+res.value+"' at "+res.position)
+          case Some(class_ref) => {
+          	gs.lookupClass(class_ref.value) match {
+          	  case None => error("Class " + c.id.value + " extends class "+class_ref.value+ " which is not defined.", class_ref)
           	  case Some(res2) => {
-                res.setSymbol(res2)
-                currentCls.parent = gs.lookupClass(res.value)
+                class_ref.setSymbol(res2)
+                currentCls.parent = gs.lookupClass(class_ref.value)
               }
           	}
           }
         }
+        
+        var cyclic, cyc_check_done = false
+        var current_parent = currentCls.parent.getOrElse(null)
+        var sb = new StringBuilder
+//        sb.append(current_parent.name)
+//        sb.append(" <: ")
+        sb.append(currentCls.name)
+        while(!cyc_check_done){
+          if(current_parent != null && current_parent == currentCls){
+            cyclic = true
+            cyc_check_done = true
+          }else if(current_parent != null){
+            sb.append(" <: ")
+            sb.append(current_parent.name)
+            current_parent = current_parent.parent.getOrElse(null)
+          }else{
+            cyc_check_done = true
+          }
+        }
+        
+        if(cyclic) {
+          sb.append(" <: ")
+          sb.append(currentCls.name)
+          fatal(sb) //TODO complete error msg
+        } 
+        
         
         for (v <- c.vars) {
           currentCls.lookupVar(v.id.value) match {
@@ -153,6 +184,7 @@ object NameAnalysis extends Pipeline[Program, Program] {
       //MethodDecl(retType: TypeTree, id: Identifier, args: List[Formal], vars: List[VarDecl], stats: List[StatTree], retExpr: ExprTree)
       def _MethodDeclaration(m: MethodDecl, cls: ClassSymbol) = {
         var currentMs: MethodSymbol = null
+        
         cls.lookupMethod(m.id.value, false) match {
           case None => sys.error("Internal error, please report with error code 3.")
           case Some(res) => {
@@ -183,16 +215,17 @@ object NameAnalysis extends Pipeline[Program, Program] {
               case Some(method_ref) => {
                 currentMs.overridden = parent_ref.lookupMethod(m.id.value)
                 if(method_ref.argList.size != currentMs.argList.size) //TODO position
-                  error("Method overloading not permitted, overriding should use same parameters at "+method_ref.position)
+                  error(m.id.value + " overrides previous definition from " + method_ref.position + " with a different number of parameters.", m)
               }
             }
           }
         }
         
         m.stats.foreach(s => _Statement(s, currentMs))
+        
+        _Expression(m.retExpr, currentMs)
       }
 
-      //TBD later
       def _Statement(s: StatTree, ms: MethodSymbol): Unit = {
         s match {
           case Block(stats: List[StatTree]) => {
@@ -218,7 +251,7 @@ object NameAnalysis extends Pipeline[Program, Program] {
               error("Undeclared identifier: "+ id.value)
             }
           	ms.lookupVar(id.value) match {
-          	  case (None, _) => error("'" + id.value + "' was not declared in this scope at " + id.position)
+          	  case (None, _) => error("Undeclared identifier: " + id.value + ".", id)
           	  case (Some(var_ref), _) => {
           	    id.setSymbol(var_ref)
           	    _Expression(expr, ms)
@@ -284,7 +317,9 @@ object NameAnalysis extends Pipeline[Program, Program] {
 		    _Expression(arr, ms)
 		  }
 		  case MethodCall(obj: ExprTree, meth: Identifier, args: List[ExprTree]) => {
-		    _Expression(obj, ms).lookupMethod(meth.value) match {
+		    val tmp = _Expression(obj, ms)
+		    if(tmp != null) 
+		      tmp.lookupMethod(meth.value) match {
 		      case None => error("'" + meth.value + "' was not declared in this scope at " + meth.position)
 		      case Some(method_ref) => {
 		        meth.setSymbol(method_ref)
@@ -307,10 +342,10 @@ object NameAnalysis extends Pipeline[Program, Program] {
 		    
 		  }
 		  case Identifier(value: String) => {
-		    /*ms.classSymbol.lookupVar(value) match {
-		      case (None, _) => error("'" + value + "' was not declared in this scope")
-		      case (Some(class_ref), _) => newClass = class_ref
-		    }*/
+		    ms.lookupVar(value) match {
+		      case (None, _) => error("Undeclared identifier: " + value, expr)
+		      case (Some(class_ref), _) => newClass = ms.classSymbol
+		    }
 		  }
 		
 		  case This() => {
@@ -321,7 +356,7 @@ object NameAnalysis extends Pipeline[Program, Program] {
 		  }
 		  case New(tpe: Identifier) => {
 		    gs.lookupClass(tpe.value) match {
-		      case None => error("'" + tpe.value + "' was not declared in this scope at " + tpe.position)
+		      case None => error("Undeclared type: " + tpe.value + ".", tpe)
 		      case Some(class_ref) => { tpe.setSymbol(class_ref); newClass = class_ref; }
 		    }
 		  }
@@ -335,10 +370,9 @@ object NameAnalysis extends Pipeline[Program, Program] {
     }
 
     firstRound()
-    terminateIfErrors
-//    error("Please enter CTRL+C") // TODO, help the user
+//    terminateIfErrors
     secondRound()
-
+    terminateIfErrors
     //    println(prog)
 
     // Step 1: Collect symbols in declarations

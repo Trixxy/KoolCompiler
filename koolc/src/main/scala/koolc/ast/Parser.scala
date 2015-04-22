@@ -71,18 +71,20 @@ object Parser extends Pipeline[Iterator[Token], Program] {
      * }
      */
     def parseGoal: Program = {
-      val pos = currentToken
+      val posf = currentToken.file
+      val posi = Position.encode(currentToken.line, currentToken.col)
       val main = _MainObject()
       val classes = _ClassDeclaration()
       eat(EOF)
-      new Program(main, classes).setPos(pos)
+      new Program(main, classes).setPos(posf, posi)
     }
 
     /**
      * MainObject ::= object Identifier { def main ( ) : Unit = { ( Statement )* } }
      */
     def _MainObject(): MainObject = {
-      val pos = currentToken
+      val posf = currentToken.file
+      val posi = Position.encode(currentToken.line, currentToken.col)
       eat(OBJECT)
       val id = _Identifier()
       eat(LBRACE)
@@ -97,7 +99,7 @@ object Parser extends Pipeline[Iterator[Token], Program] {
       val stats = _Statement()
       eat(RBRACE)
       eat(RBRACE)
-      new MainObject(id, stats).setPos(pos)
+      new MainObject(id, stats).setPos(posf, posi)
     }
 
     /**
@@ -110,7 +112,8 @@ object Parser extends Pipeline[Iterator[Token], Program] {
 
       //Do for every CLASS declaration
       while (currentToken.kind == CLASS) {
-        val pos = currentToken
+        val posf = currentToken.file
+        val posi = Position.encode(currentToken.line, currentToken.col)
         eat(CLASS)
         val id = _Identifier()
 
@@ -125,7 +128,7 @@ object Parser extends Pipeline[Iterator[Token], Program] {
         val methods = _MethodDeclaration()
         eat(RBRACE)
 
-        classes = classes :+ new ClassDecl(id, parent, vars, methods).setPos(pos)
+        classes = classes :+ new ClassDecl(id, parent, vars, methods).setPos(posf, posi)
       }
 
       classes
@@ -140,14 +143,15 @@ object Parser extends Pipeline[Iterator[Token], Program] {
 
       //Do for every VAR declaration 
       while (currentToken.kind == VAR) {
-        val pos = currentToken
+        val posf = currentToken.file
+        val posi = Position.encode(currentToken.line, currentToken.col)
         eat(VAR)
         val id = _Identifier()
         eat(COLON)
         val tpe = _Type()
         eat(SEMICOLON)
 
-        vars = vars :+ new VarDecl(tpe, id).setPos(pos)
+        vars = vars :+ new VarDecl(tpe, id).setPos(posf, posi)
       }
 
       vars
@@ -167,7 +171,9 @@ object Parser extends Pipeline[Iterator[Token], Program] {
 
       //Do for every METHOD declaration
       while (currentToken.kind == DEF) {
-        val pos = currentToken
+        val posf = currentToken.file
+        val posi = Position.encode(currentToken.line, currentToken.col)
+
         eat(DEF)
         val id = _Identifier()
         eat(LPAREN)
@@ -175,20 +181,22 @@ object Parser extends Pipeline[Iterator[Token], Program] {
         var args: List[Formal] = Nil
 
         if (currentToken.kind != RPAREN) {
-          val pos = currentToken
+          val posf = currentToken.file
+          val posi = Position.encode(currentToken.line, currentToken.col)
           val arg_id = _Identifier()
           eat(COLON)
           val arg_type = _Type()
 
-          args = args :+ new Formal(arg_type, arg_id).setPos(pos)
+          args = args :+ new Formal(arg_type, arg_id).setPos(posf, posi)
 
           while (currentToken.kind == COMMA) {
             eat(COMMA)
-            val pos = currentToken
+            val posf = currentToken.file
+            val posi = Position.encode(currentToken.line, currentToken.col)
             val arg_id = _Identifier()
             eat(COLON)
             val arg_type = _Type()
-            args = args :+ new Formal(arg_type, arg_id).setPos(pos)
+            args = args :+ new Formal(arg_type, arg_id).setPos(posf, posi)
           }
         }
 
@@ -203,8 +211,8 @@ object Parser extends Pipeline[Iterator[Token], Program] {
         val retExpr = _Expression()
         eat(SEMICOLON)
         eat(RBRACE)
-
-        methods = methods :+ new MethodDecl(retType, id, args, vars, stats, retExpr).setPos(pos)
+        
+        methods = methods :+ new MethodDecl(retType, id, args, vars, stats, retExpr).setPos(posf, posi)
       }
 
       methods
@@ -218,25 +226,26 @@ object Parser extends Pipeline[Iterator[Token], Program] {
      * | Identifier
      */
     def _Type() = {
-      val pos = currentToken
+      val posf = currentToken.file
+      val posi = Position.encode(currentToken.line, currentToken.col)
       currentToken.kind match {
         case INT => {
           eat(INT)
           if (currentToken.kind == LBRACKET) {
             eat(LBRACKET)
             eat(RBRACKET)
-            new IntArrayType().setPos(pos)
+            new IntArrayType().setPos(posf, posi)
           } else {
-            new IntType().setPos(pos)
+            new IntType().setPos(posf, posi)
           }
         }
         case BOOLEAN => {
           eat(BOOLEAN)
-          new BooleanType().setPos(pos)
+          new BooleanType().setPos(posf, posi)
         }
         case STRING => {
           eat(STRING)
-          new StringType().setPos(pos)
+          new StringType().setPos(posf, posi)
         }
         case IDKIND => {
           _Identifier()
@@ -266,14 +275,15 @@ object Parser extends Pipeline[Iterator[Token], Program] {
 
       //Representation of ONE STATEMENT
       def one_Statement(): StatTree = {
-        val pos = currentToken
+        val posf = currentToken.file
+        val posi = Position.encode(currentToken.line, currentToken.col)
         currentToken.kind match {
           case LBRACE => {
             eat(LBRACE)
             val stats = _Statement()
             eat(RBRACE)
 
-            new Block(stats).setPos(pos)
+            new Block(stats).setPos(posf, posi)
           }
           case IF => {
             eat(IF)
@@ -288,7 +298,7 @@ object Parser extends Pipeline[Iterator[Token], Program] {
               els = Option(one_Statement())
             }
 
-            new If(expr, thn, els).setPos(pos)
+            new If(expr, thn, els).setPos(posf, posi)
           }
           case WHILE => {
             eat(WHILE)
@@ -297,7 +307,7 @@ object Parser extends Pipeline[Iterator[Token], Program] {
             eat(RPAREN)
             val stat = one_Statement()
 
-            new While(expr, stat).setPos(pos)
+            new While(expr, stat).setPos(posf, posi)
           }
           case PRINTLN => {
             eat(PRINTLN)
@@ -306,18 +316,19 @@ object Parser extends Pipeline[Iterator[Token], Program] {
             eat(RPAREN)
             eat(SEMICOLON)
 
-            new Println(expr).setPos(pos)
+            new Println(expr).setPos(posf, posi)
           }
           case IDKIND => {
             val id = _Identifier()
-            val pos = currentToken
+            val posf = currentToken.file
+            val posi = Position.encode(currentToken.line, currentToken.col)
             currentToken.kind match {
               case EQSIGN => {
                 eat(EQSIGN)
                 val expr = _Expression()
                 eat(SEMICOLON)
 
-                new Assign(id, expr).setPos(pos)
+                new Assign(id, expr).setPos(posf, posi)
               }
               case LBRACKET => {
                 eat(LBRACKET)
@@ -327,7 +338,7 @@ object Parser extends Pipeline[Iterator[Token], Program] {
                 val expr = _Expression()
                 eat(SEMICOLON)
 
-                new ArrayAssign(id, index, expr).setPos(pos)
+                new ArrayAssign(id, index, expr).setPos(posf, posi)
               }
               case _ => expected(EQSIGN, LBRACKET)
 
@@ -370,9 +381,10 @@ object Parser extends Pipeline[Iterator[Token], Program] {
         //      --> || AndTerm Expr_prime
         //        | ɛ
         while (currentToken.kind == OR) {
-          val pos = currentToken
+          val posf = currentToken.file
+          val posi = Position.encode(currentToken.line, currentToken.col)
           eat(OR)
-          expr = new Or(expr, _AndTerm()).setPos(pos)
+          expr = new Or(expr, _AndTerm()).setPos(posf, posi)
         }
 
         expr
@@ -386,9 +398,10 @@ object Parser extends Pipeline[Iterator[Token], Program] {
         //      --> && RelTerm AndTerm_prime
         //        | ɛ
         while (currentToken.kind == AND) {
-          val pos = currentToken
+          val posf = currentToken.file
+          val posi = Position.encode(currentToken.line, currentToken.col)
           eat(AND)
-          expr = new And(expr, _RelExpr()).setPos(pos)
+          expr = new And(expr, _RelExpr()).setPos(posf, posi)
         }
 
         expr
@@ -404,15 +417,16 @@ object Parser extends Pipeline[Iterator[Token], Program] {
         //        | < NumExpr RelExpr_prime
         //        | ɛ
         while (currentToken.kind == EQUALS || currentToken.kind == LESSTHAN) {
-          val pos = currentToken
+          val posf = currentToken.file
+          val posi = Position.encode(currentToken.line, currentToken.col)
           currentToken.kind match {
             case EQUALS => {
               eat(EQUALS)
-              expr = new Equals(expr, _NumExpr()).setPos(pos)
+              expr = new Equals(expr, _NumExpr()).setPos(posf, posi)
             }
             case LESSTHAN => {
               eat(LESSTHAN)
-              expr = new LessThan(expr, _NumExpr()).setPos(pos)
+              expr = new LessThan(expr, _NumExpr()).setPos(posf, posi)
             }
             case _ => {}
           }
@@ -431,15 +445,16 @@ object Parser extends Pipeline[Iterator[Token], Program] {
         //        | - Term NumExpr_prime
         //        | ɛ
         while (currentToken.kind == PLUS || currentToken.kind == MINUS) {
-          val pos = currentToken
+          val posf = currentToken.file
+          val posi = Position.encode(currentToken.line, currentToken.col)
           currentToken.kind match {
             case PLUS => {
               eat(PLUS)
-              expr = new Plus(expr, _Term()).setPos(pos)
+              expr = new Plus(expr, _Term()).setPos(posf, posi)
             }
             case MINUS => {
               eat(MINUS)
-              expr = new Minus(expr, _Term()).setPos(pos)
+              expr = new Minus(expr, _Term()).setPos(posf, posi)
             }
             case _ => {}
           }
@@ -458,15 +473,16 @@ object Parser extends Pipeline[Iterator[Token], Program] {
         //        | / Term NumExpr_prime
         //        | ɛ
         while (currentToken.kind == TIMES || currentToken.kind == DIV) {
-          val pos = currentToken
+          val posf = currentToken.file
+          val posi = Position.encode(currentToken.line, currentToken.col)
           currentToken.kind match {
             case TIMES => {
               eat(TIMES)
-              expr = new Times(expr, _Value()).setPos(pos)
+              expr = new Times(expr, _Value()).setPos(posf, posi)
             }
             case DIV => {
               eat(DIV)
-              expr = new Div(expr, _Value()).setPos(pos)
+              expr = new Div(expr, _Value()).setPos(posf, posi)
             }
             case _ => {}
           }
@@ -482,9 +498,10 @@ object Parser extends Pipeline[Iterator[Token], Program] {
         //      --> ! Value_prime
         //        | ɛ
         if (currentToken.kind == BANG) {
-          val pos = currentToken
+          val posf = currentToken.file
+          val posi = Position.encode(currentToken.line, currentToken.col)
           eat(BANG)
-          expr = new Not(_Value()).setPos(pos)
+          expr = new Not(_Value()).setPos(posf, posi)
         } else {
           expr = _Factor()
         }
@@ -495,7 +512,8 @@ object Parser extends Pipeline[Iterator[Token], Program] {
       //    --> 
       def _Factor(): ExprTree = {
         var expr: ExprTree = null //Place holder
-        val pos = currentToken
+        val posf = currentToken.file
+        val posi = Position.encode(currentToken.line, currentToken.col)
         currentToken.kind match {
           case INTLITKIND => {
             val num = currentToken.toString
@@ -503,7 +521,7 @@ object Parser extends Pipeline[Iterator[Token], Program] {
             val Pattern(value) = num
             eat(INTLITKIND)
 
-            expr = new IntLit(value.toInt).setPos(pos)
+            expr = new IntLit(value.toInt).setPos(posf, posi)
           }
           case STRLITKIND => {
             val str = currentToken.toString
@@ -511,17 +529,17 @@ object Parser extends Pipeline[Iterator[Token], Program] {
             val Pattern(value) = str
             eat(STRLITKIND)
 
-            expr = new StringLit(value).setPos(pos)
+            expr = new StringLit(value).setPos(posf, posi)
           }
           case TRUE => {
             eat(TRUE)
 
-            expr = new True().setPos(pos)
+            expr = new True().setPos(posf, posi)
           }
           case FALSE => {
             eat(FALSE)
 
-            expr = new False().setPos(pos)
+            expr = new False().setPos(posf, posi)
           }
           case IDKIND => {
             expr = _Identifier()
@@ -529,7 +547,7 @@ object Parser extends Pipeline[Iterator[Token], Program] {
           case THIS => {
             eat(THIS)
 
-            expr = new This().setPos(pos)
+            expr = new This().setPos(posf, posi)
           }
           case NEW => {
             eat(NEW)
@@ -541,14 +559,14 @@ object Parser extends Pipeline[Iterator[Token], Program] {
                 val size = _Expr()
                 eat(RBRACKET)
 
-                expr = new NewIntArray(size).setPos(pos)
+                expr = new NewIntArray(size).setPos(posf, posi)
               }
               case IDKIND => {
                 val tpe = _Identifier()
                 eat(LPAREN)
                 eat(RPAREN)
 
-                expr = new New(tpe).setPos(pos)
+                expr = new New(tpe).setPos(posf, posi)
               }
               case _ => expected(INT, IDKIND)
             } //match whether int or id
@@ -566,14 +584,15 @@ object Parser extends Pipeline[Iterator[Token], Program] {
         //Match whether expandable
         var expand = true
         while (expand) {
-          val pos = currentToken
+          val posf = currentToken.file
+          val posi = Position.encode(currentToken.line, currentToken.col)
           currentToken.kind match {
             case LBRACKET => {
               eat(LBRACKET)
               val index = _Expr()
               eat(RBRACKET)
 
-              expr = new ArrayRead(expr, index).setPos(pos)
+              expr = new ArrayRead(expr, index).setPos(posf, posi)
             }
             case DOT => {
               eat(DOT)
@@ -581,7 +600,7 @@ object Parser extends Pipeline[Iterator[Token], Program] {
                 case LENGTH => {
                   eat(LENGTH)
 
-                  expr = new ArrayLength(expr).setPos(pos)
+                  expr = new ArrayLength(expr).setPos(posf, posi)
                 }
                 case IDKIND => {
                   val meth = _Identifier()
@@ -599,7 +618,7 @@ object Parser extends Pipeline[Iterator[Token], Program] {
 
                   eat(RPAREN)
 
-                  expr = new MethodCall(expr, meth, args).setPos(pos)
+                  expr = new MethodCall(expr, meth, args).setPos(posf, posi)
                 }
                 case _ => expected(DOT, IDKIND)
               } //match after dot     
@@ -621,11 +640,12 @@ object Parser extends Pipeline[Iterator[Token], Program] {
      */
     def _Identifier(): Identifier = {
       val id: String = currentToken.toString
-      var pos = currentToken
+      val posf = currentToken.file
+      val posi = Position.encode(currentToken.line, currentToken.col)
       eat(IDKIND)
       val Pattern = """ID\((.+)\)""".r
       val Pattern(value) = id
-      new Identifier(value).setPos(pos)
+      new Identifier(value).setPos(posf, posi)
     }
 
     readToken
