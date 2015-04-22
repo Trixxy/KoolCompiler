@@ -106,7 +106,7 @@ object NameAnalysis extends Pipeline[Program, Program] {
 
       //MainObject(id: Identifier, stats: List[StatTree]) extends Tree with Symbolic[ClassSymbol]
       def _MainObject(main: MainObject) = {
-        main.setSymbol(gs.mainClass)
+        main.id.setSymbol(gs.mainClass)
         main.stats.foreach(s => _Statement(s, new MethodSymbol(null, null)))
       }
 
@@ -118,7 +118,7 @@ object NameAnalysis extends Pipeline[Program, Program] {
         gs.lookupClass(c.id.value) match {
           case None => sys.error("Internal error, please report with error code 1.")
           case Some(res) => {
-            c.setSymbol(res)
+            c.id.setSymbol(res)
             currentCls = res
           }
         }
@@ -126,17 +126,20 @@ object NameAnalysis extends Pipeline[Program, Program] {
         c.parent match {
           case None => {}
           case Some(res) => {
-        	gs.lookupClass(res.value) match {
-        	  case None => error("extends a non-existing class '"+res.value+"' at "+res.position)
-        	  case _ => currentCls.parent = gs.lookupClass(res.value)
-        	}
+          	gs.lookupClass(res.value) match {
+          	  case None => error("extends a non-existing class '"+res.value+"' at "+res.position)
+          	  case Some(res2) => {
+                res.setSymbol(res2)
+                currentCls.parent = gs.lookupClass(res.value)
+              }
+          	}
           }
         }
         
         for (v <- c.vars) {
           currentCls.lookupVar(v.id.value) match {
             case None => sys.error("Internal error, please report with error code 2.")
-            case Some(res) => v.setSymbol(res)
+            case Some(res) => v.id.setSymbol(res)
           }
         }
 
@@ -153,7 +156,7 @@ object NameAnalysis extends Pipeline[Program, Program] {
         cls.lookupMethod(m.id.value, false) match {
           case None => sys.error("Internal error, please report with error code 3.")
           case Some(res) => {
-            m.setSymbol(res)
+            m.id.setSymbol(res)
             currentMs = res
           }
         }
@@ -161,13 +164,13 @@ object NameAnalysis extends Pipeline[Program, Program] {
         for(a <- m.args) {
           currentMs.lookupVar(a.id.value) match {
             case (None, _) => sys.error("Internal error, please report with error code 4.")
-            case (Some(res), _) => a.setSymbol(res)
+            case (Some(res), _) => a.id.setSymbol(res)
           }
         }
         for(v <- m.vars) {
           currentMs.lookupVar(v.id.value) match {
             case (None, _) => sys.error("Internal error, please report with error code 5.")
-            case (Some(res), _) => v.setSymbol(res)
+            case (Some(res), _) => v.id.setSymbol(res)
           }
         }
 
@@ -214,13 +217,13 @@ object NameAnalysis extends Pipeline[Program, Program] {
             if(ms.name == null) {
               error("Undeclared identifier: "+ id.value)
             }
-        	ms.lookupVar(id.value) match {
-        	  case (None, _) => error("'" + id.value + "' was not declared in this scope at " + id.position)
-        	  case (Some(var_ref), _) => {
-        	    id.setSymbol(var_ref)
-        	    _Expression(expr, ms)
-        	  }
-        	}
+          	ms.lookupVar(id.value) match {
+          	  case (None, _) => error("'" + id.value + "' was not declared in this scope at " + id.position)
+          	  case (Some(var_ref), _) => {
+          	    id.setSymbol(var_ref)
+          	    _Expression(expr, ms)
+          	  }
+          	}
           }
           case ArrayAssign(id: Identifier, index: ExprTree, expr: ExprTree) => {
             if(ms.name == null) {
@@ -304,10 +307,10 @@ object NameAnalysis extends Pipeline[Program, Program] {
 		    
 		  }
 		  case Identifier(value: String) => {
-		    ms.classSymbol.lookupVar(value) match {
+		    /*ms.classSymbol.lookupVar(value) match {
 		      case (None, _) => error("'" + value + "' was not declared in this scope")
-		      case (Some(class_ref), _) => newClass = class_ref.
-		    }
+		      case (Some(class_ref), _) => newClass = class_ref
+		    }*/
 		  }
 		
 		  case This() => {
