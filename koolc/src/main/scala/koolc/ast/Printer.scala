@@ -18,7 +18,6 @@ object Printer {
       case MainObject(id: Identifier, stats: List[StatTree]) => {
         sb.append("object ")
         sb.append(Printer(id))
-        sb.append("#" + id.getSymbol.id)
         sb.append(" {\n")
         sb.append(indent(depth))
         sb.append("def main() : Unit = {\n")
@@ -30,7 +29,6 @@ object Printer {
       case ClassDecl(id: Identifier, parent: Option[Identifier], vars: List[VarDecl], methods: List[MethodDecl]) => {
         sb.append("class ")
         sb.append(Printer(id))
-        sb.append("#" + id.getSymbol.id)
         
         //OPTIONAL PARENT
         parent match {
@@ -38,7 +36,6 @@ object Printer {
           case Some(value) => {
             sb.append(" extends ")
             sb.append(Printer(value))
-            sb.append("#" + value.getSymbol.id)
           }
         }
         sb.append(" {\n");
@@ -50,7 +47,6 @@ object Printer {
         sb.append(indent(depth))
         sb.append("var ")
         sb.append(Printer(id))
-        sb.append("#" + id.getSymbol.id)
         sb.append(" : ")
         sb.append(Printer(tpe))
         sb.append(";\n")
@@ -59,7 +55,6 @@ object Printer {
         sb.append(indent(depth))
         sb.append("def ")
         sb.append(Printer(id))
-        sb.append("#" + id.getSymbol.id)
         sb.append("(")
         //ARGUMENTS WITH ', '
         var first = true
@@ -82,7 +77,6 @@ object Printer {
       }
       case Formal(tpe: TypeTree, id: Identifier) => {
         sb.append(Printer(id))
-        sb.append("#" + id.getSymbol.id)
         sb.append(": ")
         sb.append(Printer(tpe))
       }
@@ -135,7 +129,6 @@ object Printer {
       case Assign(id: Identifier, expr: ExprTree) => {
         sb.append(indent(depth))
         sb.append(Printer(id))
-        sb.append("#" + id.getSymbol.id)
         sb.append(" = ")
         sb.append(Printer(expr))
         sb.append(";\n")
@@ -143,7 +136,6 @@ object Printer {
       case ArrayAssign(id: Identifier, index: ExprTree, expr: ExprTree) => {
         sb.append(indent(depth))
         sb.append(Printer(id))
-        sb.append("#" + id.getSymbol.id)
         sb.append("[")
         sb.append(Printer(index))
         sb.append("] = ")
@@ -247,6 +239,7 @@ object Printer {
       }
       case Identifier(value: String) => {
         sb.append(value)
+        sb.append("#"+t.asInstanceOf[Identifier].getSymbol.id)
       }
       case This() => {
         sb.append("this")
@@ -259,7 +252,6 @@ object Printer {
       case New(tpe: Identifier) => {
         sb.append(" new ")
         sb.append(Printer(tpe))
-        sb.append("#" + tpe.getSymbol.id)
         sb.append("()")
       }
       case Not(expr: ExprTree) => {

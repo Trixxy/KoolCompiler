@@ -6,20 +6,20 @@ mycode.kool:13:9: Warning: Variable b is declared but never used.
 
 object Example {def main(): Unit = {}}
 
-class A extends B{
+class A {
   var a: Int;
 
-  def foo() : Int = {
+  def foo(a: Int) : Int = {
     var b: Int;
     return a;
   }
 }
 
-class B extends C {
+class B extends A {
 
 }
 
-class C {
+class C extends B {
   def foo(c: Int): Int = {
     return a;
   }

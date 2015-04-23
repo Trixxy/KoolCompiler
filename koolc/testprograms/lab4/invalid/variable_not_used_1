@@ -1,0 +1,19 @@
+/*
+mycode.kool:13:7: Warning: Variable a is declared but never used.
+  var a: Int;
+       ^
+mycode.kool:16:9: Warning: Variable b is declared but never used.
+    var b: Int;
+         ^
+*/
+
+object Example {def main(): Unit = {}}
+
+class A {
+  var a: Int;
+
+  def foo(a: Int) : Int = {
+  	var b: Int;
+    return a;
+  }
+}

@@ -55,24 +55,24 @@ object Symbols {
 
       methods.get(n) match {
         case None => {
-          if(recursive) parentChildCheck(parent) else None
+          if (recursive) parentChildCheck(parent) else None
         }
         case Some(res) => methods.get(n)
       }
     }
-    def lookupVar(n: String): Option[VariableSymbol] = {
-      def parentChildCheck(currentClass: Option[ClassSymbol]): Option[VariableSymbol] = {
-        currentClass match {
-          case None => None
-          case Some(res) => res.lookupVar(n)
-        }
-      }
 
+    def lookupVar(n: String): Option[VariableSymbol] = {
       members.get(n) match {
-        case None => parentChildCheck(parent)
-        case Some(res) => members.get(n)
+        case None => {
+          parent match {
+            case None => None
+            case Some(parent_ref) => parent_ref.lookupVar(n)
+          }
+        }
+        case _ => members.get(n)
       }
     }
+
   }
 
   class MethodSymbol(val name: String, val classSymbol: ClassSymbol) extends Symbol {
@@ -89,7 +89,7 @@ object Symbols {
       params.get(n) match {
         case None => {
           members.get(n) match {
-          	case None => (classSymbol.lookupVar(n), 0)
+            case None => (classSymbol.lookupVar(n), 0)
             case Some(res) => (members.get(n), 1) //if a member - may shadow params
           }
         }

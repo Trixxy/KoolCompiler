@@ -1,0 +1,20 @@
+/*
+mycode.kool:13:9: Error: Declaration of a as local shadows method parameter of the same name.
+    var a: Int;
+         ^
+mycode.kool:14:9: Error: Declaration of a as local shadows method parameter of the same name.
+    var a: Int;
+         ^
+*/
+
+object Example {def main(): Unit = {}}
+
+class A {
+  var a: Int;
+  
+  def foo(a: Int) : Int = {
+    var a: Int;
+    var a: Int;
+    return a;
+  }
+}

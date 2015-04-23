@@ -1,0 +1,17 @@
+/*
+mycode.kool:11:7: Error: a is declared more than once. First definition here: mycode.kool:10:7
+  var a: Int;
+       ^
+*/
+
+object Example {def main(): Unit = {}}
+
+class A {
+  var a: Int;
+  var a: Int;
+  
+  def foo(a: Int) : Int = {
+    var b: Int;
+    return a;
+  }
+}

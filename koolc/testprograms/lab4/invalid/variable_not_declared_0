@@ -1,0 +1,13 @@
+/*
+mycode.kool:11:12: Error: Undeclared identifier: b
+    return b;
+            ^
+*/
+
+object Example {def main(): Unit = {}}
+
+class A {  
+  def foo(a: Int) : Int = {
+    return b;
+  }
+}
