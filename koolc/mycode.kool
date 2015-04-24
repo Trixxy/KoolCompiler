@@ -4,10 +4,12 @@ mycode.kool:13:9: Warning: Variable b is declared but never used.
          ^
 */
 
-object Example {def main(): Unit = {}}
+object Example {def main(): Unit = {
+  println(new B().foo());
+}}
 
 class A extends B{
-  var a: Int;
+  
 
   def foo() : Int = {
     var b: Int;
@@ -16,11 +18,12 @@ class A extends B{
 }
 
 class B extends C {
-
+  
 }
 
 class C {
-  def foo(c: Int): Int = {
+  var a: Int;
+  def foo(): Int = {
     return a;
   }
 }

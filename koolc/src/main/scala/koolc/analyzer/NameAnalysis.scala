@@ -24,8 +24,6 @@ object NameAnalysis extends Pipeline[Program, Program] {
 
       //ClassDecl(id: Identifier, parent: Option[Identifier], vars: List[VarDecl], methods: List[MethodDecl])
       def _ClassDeclaration(c: ClassDecl): ClassSymbol = {
-        //    	gs.classes = new Map[String,ClassSymbol]
-
         if (c.id.value == gs.mainClass.name) {
           error("Class " + c.id.value + " has the same name as the main class.", c.id)
         }
@@ -36,8 +34,9 @@ object NameAnalysis extends Pipeline[Program, Program] {
         }
 
         var cls = new ClassSymbol(c.id.value).setPos(c)
+        cls.setType(new Types.TObject(cls))
 
-        c.id.setSymbol(cls)
+        c.id.setSymbol(cls).setType(cls.getType)
 
         //        var cls: ClassSymbol = null
         //        gs.lookupClass(c.id.value) match {
@@ -48,7 +47,17 @@ object NameAnalysis extends Pipeline[Program, Program] {
         //        }
 
         for (v <- c.vars) {
-          val tmp = new VariableSymbol(v.id.value).setPos(v.id);
+          val tmp = new VariableSymbol(v.id.value).setPos(v.id)
+          
+          v.tpe match {
+            case BooleanType() => tmp.setType(Types.TBoolean)
+            case IntType() => tmp.setType(Types.TInt)
+            case IntArrayType() => tmp.setType(Types.TIntArray)
+            case StringType() => tmp.setType(Types.TString)
+            case Identifier(value: String) => tmp.setType(Types.TObject(gs.lookupClass(value).getOrElse(null)))
+            //TODO if null pointer exception - this is a potential
+          }
+          
           cls.lookupVar(v.id.value) match {
             case None => {}
             case Some(var_ref) => error(var_ref.name + " is declared more than once. First definition here: " + var_ref.position, v.id)
@@ -113,14 +122,15 @@ object NameAnalysis extends Pipeline[Program, Program] {
           case Some(parent_ref) => {
             if (parent_ref.value == currentCls.name) {
               error("Class " + c.id.value + " cannot extend itself.", c)
-            } else
+            } else {
               gs.lookupClass(parent_ref.value) match {
                 case None => error("Class " + c.id.value + " extends class " + parent_ref.value + " which is not defined.", parent_ref)
                 case Some(class_ref) => {
-                  parent_ref.setSymbol(class_ref)
+                  parent_ref.setSymbol(class_ref).setType(class_ref.getType)
                   currentCls.parent = gs.lookupClass(parent_ref.value)
                 }
               }
+            }
           }
         }
 
@@ -162,7 +172,7 @@ object NameAnalysis extends Pipeline[Program, Program] {
 
       //MainObject(id: Identifier, stats: List[StatTree]) extends Tree with Symbolic[ClassSymbol]
       def _MainObject(main: MainObject) = {
-        main.id.setSymbol(gs.mainClass)
+        main.id.setSymbol(gs.mainClass).setType(gs.mainClass.getType)
         main.stats.foreach(s => _Statement(s, new MethodSymbol(null, null)))
       }
 
@@ -182,7 +192,7 @@ object NameAnalysis extends Pipeline[Program, Program] {
           currentCls.lookupVar(v.id.value) match {
             case None => sys.error("Internal error, please report with error code 2.")
             case Some(var_ref) => {
-              v.id.setSymbol(var_ref)
+              v.id.setSymbol(var_ref).setType(var_ref.getType)
             }
           }
         }
@@ -191,7 +201,7 @@ object NameAnalysis extends Pipeline[Program, Program] {
           if (v.tpe.isInstanceOf[Identifier]) {
             gs.lookupClass(v.tpe.asInstanceOf[Identifier].value) match {
               case None => fatal("Undeclared type: " + v.tpe.asInstanceOf[Identifier].value + ".", v.tpe)
-              case Some(res) => v.tpe.asInstanceOf[Identifier].setSymbol(res)
+              case Some(class_ref) => v.tpe.asInstanceOf[Identifier].setSymbol(class_ref).setType(class_ref.getType)
             }
           }
         }
@@ -219,6 +229,10 @@ object NameAnalysis extends Pipeline[Program, Program] {
                   m.overridden = parent_ref.lookupMethod(m.name)
                   if (method_ref.argList.size != m.argList.size)
                     error(m.name + " overrides previous definition from " + method_ref.position + " with a different number of parameters.", m)
+                  else {
+                    sys.error("Need to compare the types of both lists!")
+                    method_ref.argList.diff(m.argList); //Diffar men kollar ej typen, måste göras på annat sätt
+                  }
                 }
               }
           }
@@ -233,29 +247,29 @@ object NameAnalysis extends Pipeline[Program, Program] {
 
         cls.lookupMethod(m.id.value, false) match {
           case None => sys.error("Internal error, please report with error code 3.")
-          case Some(res) => {
-            m.id.setSymbol(res)
-            currentMs = res
+          case Some(method_ref) => {
+            m.id.setSymbol(method_ref).setType(method_ref.getType)
+            currentMs = method_ref
           }
         }
 
         for (a <- m.args) {
           currentMs.lookupVar(a.id.value) match {
             case (None, _) => sys.error("Internal error, please report with error code 4.")
-            case (Some(res), _) => a.id.setSymbol(res)
+            case (Some(var_ref), _) => a.id.setSymbol(var_ref).setType(var_ref.getType)
           }
         }
         for (v <- m.vars) {
           currentMs.lookupVar(v.id.value) match {
             case (None, _) => sys.error("Internal error, please report with error code 5.")
-            case (Some(res), _) => v.id.setSymbol(res)
+            case (Some(var_ref), _) => v.id.setSymbol(var_ref).setType(var_ref.getType)
           }
         }
 
         for (v <- m.vars) {
           if (v.tpe.isInstanceOf[Identifier]) gs.lookupClass(v.tpe.asInstanceOf[Identifier].value) match {
             case None => fatal("Undeclared type: " + v.tpe.asInstanceOf[Identifier].value + ".", v.tpe)
-            case Some(res) => v.tpe.asInstanceOf[Identifier].setSymbol(res)
+            case Some(class_ref) => v.tpe.asInstanceOf[Identifier].setSymbol(class_ref).setType(class_ref.getType)
           }
         }
 
@@ -291,7 +305,6 @@ object NameAnalysis extends Pipeline[Program, Program] {
             ms.lookupVar(id.value) match {
               case (None, _) => error("Undeclared identifier: " + id.value + ".", id)
               case (Some(var_ref), _) => {
-                //id.setSymbol(var_ref)
                 _Expression(id, ms)
                 _Expression(expr, ms)
               }
@@ -304,7 +317,6 @@ object NameAnalysis extends Pipeline[Program, Program] {
             ms.lookupVar(id.value) match {
               case (None, _) => error("'" + id.value + "' was not declared in this scope at " + id.position)
               case (Some(var_ref), _) => {
-                //id.setSymbol(var_ref)
                 _Expression(id, ms)
                 _Expression(index, ms)
                 _Expression(expr, ms)
@@ -362,7 +374,7 @@ object NameAnalysis extends Pipeline[Program, Program] {
               tmp.lookupMethod(meth.value) match {
                 case None => error("'" + meth.value + "' was not declared in this scope at " + meth.position)
                 case Some(method_ref) => {
-                  meth.setSymbol(method_ref)
+                  meth.setSymbol(method_ref).setType(method_ref.getType)
                   args.foreach(a => _Expression(a, method_ref))
                 }
               }
@@ -385,7 +397,7 @@ object NameAnalysis extends Pipeline[Program, Program] {
             ms.lookupVar(value) match {
               case (None, _) => error("Undeclared identifier: " + value, expr)
               case (Some(class_ref), _) => {
-                expr.asInstanceOf[Identifier].setSymbol(class_ref)
+                expr.asInstanceOf[Identifier].setSymbol(class_ref).setType(class_ref.getType)
 
                 variable_syms -= expr.asInstanceOf[Identifier].getSymbol.id
 
@@ -404,7 +416,7 @@ object NameAnalysis extends Pipeline[Program, Program] {
             gs.lookupClass(tpe.value) match {
               case None => error("Undeclared type: " + tpe.value + ".", tpe)
               case Some(class_ref) => {
-                tpe.setSymbol(class_ref);
+                tpe.setSymbol(class_ref).setType(class_ref.getType);
                 //		        _Expression(tpe, ms)
                 newClass = class_ref
               }
