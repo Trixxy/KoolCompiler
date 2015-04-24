@@ -10,11 +10,11 @@ object Example {def main(): Unit = {
 
 class A extends B{
   
-
-  def foo() : Int = {
+  def foo(a: A) : Int = {
     var b: Int;
     return a;
   }
+
 }
 
 class B extends C {
@@ -23,7 +23,7 @@ class B extends C {
 
 class C {
   var a: Int;
-  def foo(): Int = {
+  def foo(a: B): Int = {
     return a;
   }
 }

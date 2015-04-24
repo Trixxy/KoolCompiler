@@ -13,101 +13,66 @@ object NameAnalysis extends Pipeline[Program, Program] {
     var gs = new GlobalScope
     var variable_syms = Map[Int, VariableSymbol]()
 
-    def firstRound() {
-      _MainObject(prog.main)
-      prog.classes.foreach(c => gs.classes += c.id.value -> _ClassDeclaration(c))
-
+    //Explores every class and its class variables (one pass each)
+    def explore_classes() {
       //MainObject(id: Identifier, stats: List[StatTree]) extends Tree with Symbolic[ClassSymbol]
-      def _MainObject(main: MainObject) = {
-        gs.mainClass = new ClassSymbol(main.id.value).setPos(main.id)
+      gs.mainClass = new ClassSymbol(prog.main.id.value).setPos(prog.main.id)
+      prog.main.setSymbol(gs.mainClass)
+      prog.main.id.setSymbol(gs.mainClass)
+
+      for (c <- prog.classes) {
+        val cls = _ClassDeclaration(c);
+
+        gs.classes += c.id.value -> cls;
+
+        c.setSymbol(cls)
+        c.id.setSymbol(cls)
       }
+
+      prog.classes.foreach(c => _ClassVariables(c))
 
       //ClassDecl(id: Identifier, parent: Option[Identifier], vars: List[VarDecl], methods: List[MethodDecl])
       def _ClassDeclaration(c: ClassDecl): ClassSymbol = {
-        if (c.id.value == gs.mainClass.name) {
+        if (c.id.value == gs.mainClass.name) { //If class already exist (same name as main object)
           error("Class " + c.id.value + " has the same name as the main class.", c.id)
         }
 
-        gs.lookupClass(c.id.value) match {
-          case None => {}
-          case Some(res) => error("Class " + c.id.value + " is defined more than once. First definition here: " + res.position, c.id)
+        if (!gs.lookupClass(c.id.value).isEmpty) { //If class already exist (same name as another class)
+          error("Class " + c.id.value + " is defined more than once. First definition here: " + gs.lookupClass(c.id.value).get.position, c.id)
         }
 
-        var cls = new ClassSymbol(c.id.value).setPos(c)
-        cls.setType(new Types.TObject(cls))
-
-        c.id.setSymbol(cls).setType(cls.getType)
-
-        //        var cls: ClassSymbol = null
-        //        gs.lookupClass(c.id.value) match {
-        //          case None => sys.error("Internal error, please report with error code 1.")
-        //          case Some(res) => {
-        //            cls = res
-        //          }
-        //        }
-
-        for (v <- c.vars) {
-          val tmp = new VariableSymbol(v.id.value).setPos(v.id)
-
-          cls.lookupVar(v.id.value) match {
-            case None => {}
-            case Some(var_ref) => error(var_ref.name + " is declared more than once. First definition here: " + var_ref.position, v.id)
-          }
-          cls.members += v.id.value -> tmp
-          variable_syms += tmp.id -> tmp
-        } //List[VarDecl]
-        for (m <- c.methods) {
-          cls.lookupMethod(m.id.value, false) match {
-            case None => cls.methods += m.id.value -> _MethodDeclaration(m, cls)
-            case Some(method_ref) => error("method '" + m.id.value + "' is defined twice. First definition here: " + method_ref.position, m)
-          }
-        } //List[MethodDecl])
+        val cls = new ClassSymbol(c.id.value).setPos(c)
+        cls.setType(Types.TObject(cls))
 
         cls
       }
 
-      //MethodDecl(retType: TypeTree, id: Identifier, args: List[Formal], vars: List[VarDecl], stats: List[StatTree], retExpr: ExprTree)
-      def _MethodDeclaration(m: MethodDecl, cls: ClassSymbol): MethodSymbol = {
-        var ms = new MethodSymbol(m.id.value, cls).setPos(m)
-        
-        for (a <- m.args) {
-          ms.lookupVar(a.id.value) match {
-            case (_, 2) => error("Parameter name " + a.id.value + " is used twice in " + m.id.value + ".", a)
-            case (_, 0) => {
-              ms.params += a.id.value -> new VariableSymbol(a.id.value).setPos(a.id)
-              ms.argList = ms.argList :+ new VariableSymbol(a.id.value).setPos(a.id)
-            }
-            case (_, _) => {}
-          }
-        } // Map[String,VariableSymbol]()
+      def _ClassVariables(c: ClassDecl) = {
+        val cls = c.getSymbol
+        for (v <- c.vars) { //Go through all the class variables and...
+          val vs = new VariableSymbol(v.id.value).setPos(v.id)
 
-        for (v <- m.vars) {
-          ms.lookupVar(v.id.value) match {
-            case (_, 2) => error("Declaration of " + v.id.value + " as local shadows method parameter of the same name.", v.id)
-            case (Some(firstDecl), 1) => error(v.id.value + " is declared more than once. First declaration here: " + firstDecl.position, v.id)
-            case (_, 0) => {
-              val tmp = new VariableSymbol(v.id.value).setPos(v.id)
-              ms.members += v.id.value -> tmp
-              variable_syms += tmp.id -> tmp
-            }
-            case (_, _) => ???
+          if (!cls.lookupVar(v.id.value).isEmpty) { //Check whether the variable is declared twice within the current class
+            error(cls.lookupVar(v.id.value).get.name + " is declared more than once. First definition here: " + cls.lookupVar(v.id.value).get.position, v.id)
           }
-        }
+          //TODO: Should we add those despite the error?
+          cls.members += v.id.value -> vs
+          variable_syms += vs.id -> vs
 
-        ms
+          setSymbolType(v.tpe, vs)
+
+          v.setSymbol(vs)
+          v.id.setSymbol(vs)
+
+        } //List[VarDecl]
       }
     }
 
     //Process
     def process_hierarchy() = {
       for (c <- prog.classes) {
-        var currentCls: ClassSymbol = null
-        gs.lookupClass(c.id.value) match {
-          case None => sys.error("Internal error, please report with error code 1.")
-          case Some(res) => {
-            currentCls = res
-          }
-        }
+        var currentCls: ClassSymbol = c.getSymbol
+
         c.parent match {
           case None => {}
           case Some(parent_ref) => {
@@ -136,8 +101,7 @@ object NameAnalysis extends Pipeline[Program, Program] {
             cyclic = true
             cyc_check_done = true
           } else if (current_parent != null) {
-            sb.append(" <: ")
-            sb.append(current_parent.name)
+            sb.append(" <: ").append(current_parent.name)
             current_parent = current_parent.parent.getOrElse(null)
           } else {
             cyc_check_done = true
@@ -145,10 +109,66 @@ object NameAnalysis extends Pipeline[Program, Program] {
         }
 
         if (cyclic) {
-          sb.append(" <: ")
-          sb.append(currentCls.name)
+          sb.append(" <: ").append(currentCls.name)
           fatal("Cyclic inheritance graph: " + sb)
         }
+      }
+    }
+
+    //Explores all methods in all classes, sets symbols and types for variables and arguments
+    def explore_methods() = {
+      for (c <- prog.classes) for (m <- c.methods) {
+        c.getSymbol.lookupMethod(m.id.value, false) match {
+          case None => {
+            val ms = _MethodDeclaration(m, c.getSymbol)
+            c.getSymbol.methods += m.id.value -> ms
+            m.setSymbol(c.getSymbol.methods.get(m.id.value).get)
+            m.id.setSymbol(c.getSymbol.methods.get(m.id.value).get)
+          }
+          case Some(method_ref) => error(m.id.value + " is defined twice. First definition here: " + method_ref.position, m)
+        }
+      } //List[MethodDecl])    	
+
+      //MethodDecl(retType: TypeTree, id: Identifier, args: List[Formal], vars: List[VarDecl], stats: List[StatTree], retExpr: ExprTree)
+      def _MethodDeclaration(m: MethodDecl, cls: ClassSymbol): MethodSymbol = {
+        var ms = new MethodSymbol(m.id.value, cls).setPos(m)
+
+        for (a <- m.args) { //For each parameter, check the name
+          ms.lookupVar(a.id.value) match {
+            case (_, 2) => error("Parameter name " + a.id.value + " is used twice in " + m.id.value + ".", a)
+            case (_, 0) => {
+              val vs = new VariableSymbol(a.id.value).setPos(a.id)
+              ms.params += a.id.value -> vs
+              ms.argList = ms.argList :+ vs
+
+              setSymbolType(a.tpe, vs)
+
+              a.setSymbol(vs)
+              a.id.setSymbol(vs)
+            }
+            case (_, _) => {}
+          }
+        } // Map[String,VariableSymbol]()
+
+        for (v <- m.vars) {
+          ms.lookupVar(v.id.value) match {
+            case (_, 2) => error("Declaration of " + v.id.value + " as local shadows method parameter of the same name.", v.id)
+            case (Some(firstDecl), 1) => error(v.id.value + " is declared more than once. First declaration here: " + firstDecl.position, v.id)
+            case (_, 0) => {
+              val vs = new VariableSymbol(v.id.value).setPos(v.id)
+              ms.members += v.id.value -> vs
+              variable_syms += vs.id -> vs
+
+              setSymbolType(v.tpe, vs)
+
+              v.setSymbol(vs)
+              v.id.setSymbol(vs)
+            }
+            case (_, _) => {}
+          }
+        }
+
+        ms
       }
     }
 
@@ -158,80 +178,45 @@ object NameAnalysis extends Pipeline[Program, Program] {
     /////////////////////////////////////////////////////////////////////////////////////////////////////
     def secondRound() {
 
-      _MainObject(prog.main)
+      prog.main.stats.foreach(s => _Statement(s, new MethodSymbol(null, null)))
       prog.classes.foreach(c => _ClassDeclaration(c))
-
-      //MainObject(id: Identifier, stats: List[StatTree]) extends Tree with Symbolic[ClassSymbol]
-      def _MainObject(main: MainObject) = {
-        main.id.setSymbol(gs.mainClass).setType(gs.mainClass.getType)
-        main.stats.foreach(s => _Statement(s, new MethodSymbol(null, null)))
-      }
 
       //ClassDecl(id: Identifier, parent: Option[Identifier], vars: List[VarDecl], methods: List[MethodDecl])
       def _ClassDeclaration(c: ClassDecl) = {
-        //    	gs.classes = new Map[String,ClassSymbol]
+        var currentCls: ClassSymbol = c.getSymbol
 
-        var currentCls: ClassSymbol = null
-        gs.lookupClass(c.id.value) match {
-          case None => sys.error("Internal error, please report with error code 1.")
-          case Some(res) => {
-            currentCls = res
-          }
-        }
-
-        for (v <- c.vars) {
-          currentCls.lookupVar(v.id.value) match {
-            case None => sys.error("Internal error, please report with error code 2.")
-            case Some(var_ref) => {
-              setSymbolType(v.tpe, var_ref)
-              v.id.setSymbol(var_ref)//.setType(var_ref.getType)
-            }
-          }
-          
-          if (v.tpe.isInstanceOf[Identifier]) {
-            gs.lookupClass(v.tpe.asInstanceOf[Identifier].value) match {
-              case None => fatal("Undeclared type: " + v.tpe.asInstanceOf[Identifier].value + ".", v.tpe)
-              case Some(class_ref) => {
-                v.tpe.asInstanceOf[Identifier].setSymbol(class_ref).setType(class_ref.getType)
-              }
-            }
-          }
-        }
-
+        //Check whether class variable overrides a previous one
         for ((_, v) <- currentCls.members) {
-          currentCls.parent match {
-            case None => {}
-            case Some(parent_ref) => {
-              parent_ref.lookupVar(v.name) match {
-                case None => {}
-                case Some(var_ref) => { error(v.name + " member declaration overrides previous declaration at " + var_ref.position, v) }
-              }
+          if (!currentCls.parent.isEmpty) {
+            val parent_ref = currentCls.parent.get
+            if (!parent_ref.lookupVar(v.name).isEmpty) {
+              val var_ref = parent_ref.lookupVar(v.name).get
+              error(v.name + " member declaration overrides previous declaration at " + var_ref.position, v)
             }
           }
         }
 
         //TODO just double check overridden in type checking
-        currentCls.parent match {
-          case None => {}
-          case Some(parent_ref) => {
-            def argTypesEqual(l1: List[VariableSymbol], l2: List[VariableSymbol]): Boolean = {
-              if (l1.isEmpty) true
-              else if (l1.head.getType == l2.head.getType) argTypesEqual(l1.tail, l2.tail)
-              else false
-            }
-            for ((_, m) <- currentCls.methods) {
-              parent_ref.lookupMethod(m.name) match {
-                case None => {}
-                case Some(method_ref) => {
-                  m.overridden = parent_ref.lookupMethod(m.name)
-                  if (method_ref.argList.size != m.argList.size)
-                    error(m.name + " overrides previous definition from " + method_ref.position + " with a different number of parameters.", m)
-                  else if (!argTypesEqual(method_ref.argList, m.argList)) {
-                    error("method argument types å la no matches") //TODO come up with something beautiful 
-                  }
+        if (!currentCls.parent.isEmpty) {
+          val parent_ref = currentCls.parent.get
+
+          for ((_, m) <- currentCls.methods) {
+            parent_ref.lookupMethod(m.name) match {
+              case None => {}
+              case Some(method_ref) => {
+                m.overridden = parent_ref.lookupMethod(m.name)
+                if (method_ref.argList.size != m.argList.size)
+                  error(m.name + " overrides previous definition from " + method_ref.position + " with a different number of parameters.", m)
+                else if (!argTypesEqual(method_ref.argList, m.argList)) {
+                  error("method argument types å la no matches") //TODO come up with something beautiful 
                 }
               }
             }
+          }
+          def argTypesEqual(l1: List[VariableSymbol], l2: List[VariableSymbol]): Boolean = {
+            if (l1.isEmpty) true
+            else if (l1.head.getType == l2.head.getType) argTypesEqual(l1.tail, l2.tail)
+            else false
           }
         }
 
@@ -240,50 +225,9 @@ object NameAnalysis extends Pipeline[Program, Program] {
 
       //MethodDecl(retType: TypeTree, id: Identifier, args: List[Formal], vars: List[VarDecl], stats: List[StatTree], retExpr: ExprTree)
       def _MethodDeclaration(m: MethodDecl, cls: ClassSymbol) = {
-        var currentMs: MethodSymbol = null
-
-        cls.lookupMethod(m.id.value, false) match {
-          case None => sys.error("Internal error, please report with error code 3.")
-          case Some(method_ref) => {
-            setSymbolType(m.retType, method_ref)
-            m.id.setSymbol(method_ref)//.setType(method_ref.getType)
-            currentMs = method_ref
-          }
-        }
-
-        for (a <- m.args) {
-          currentMs.lookupVar(a.id.value) match {
-            case (None, _) => sys.error("Internal error, please report with error code 4.")
-            case (Some(var_ref), _) => {
-              setSymbolType(a.tpe, var_ref)
-              a.id.setSymbol(var_ref)//.setType(var_ref.getType)
-            }
-          }
-        }
-        
-        for (v <- m.vars) {
-          currentMs.lookupVar(v.id.value) match {
-            case (None, _) => sys.error("Internal error, please report with error code 5.")
-            case (Some(var_ref), _) => {
-              setSymbolType(v.tpe, var_ref)
-              v.id.setSymbol(var_ref)//.setType(var_ref.getType)
-            }
-          }
-        }
-
-        for (v <- m.vars) {
-          if (v.tpe.isInstanceOf[Identifier]) gs.lookupClass(v.tpe.asInstanceOf[Identifier].value) match {
-            case None => fatal("Undeclared type: " + v.tpe.asInstanceOf[Identifier].value + ".", v.tpe)
-            case Some(class_ref) => {
-              setSymbolType(v.tpe, class_ref)
-              v.tpe.asInstanceOf[Identifier].setSymbol(class_ref)//.setType(class_ref.getType)
-            }
-          }
-        }
-
-        m.stats.foreach(s => _Statement(s, currentMs))
-
-        _Expression(m.retExpr, currentMs)
+        setSymbolType(m.retType, m.getSymbol)
+        m.stats.foreach(s => _Statement(s, m.getSymbol))
+        _Expression(m.retExpr, m.getSymbol)
       }
 
       def _Statement(s: StatTree, ms: MethodSymbol): Unit = {
@@ -408,7 +352,6 @@ object NameAnalysis extends Pipeline[Program, Program] {
                 expr.asInstanceOf[Identifier].setSymbol(class_ref).setType(class_ref.getType)
 
                 variable_syms -= expr.asInstanceOf[Identifier].getSymbol.id
-
                 newClass = ms.classSymbol
               }
             }
@@ -437,36 +380,45 @@ object NameAnalysis extends Pipeline[Program, Program] {
 
         if (newClass != null) newClass else ms.classSymbol
       }
-      
-      def setSymbolType(tpe: TypeTree, sym: Symbol): Unit = {
-        tpe match {
-          case BooleanType() => sym.setType(Types.TBoolean)
-          case IntType() => sym.setType(Types.TInt)
-          case IntArrayType() => sym.setType(Types.TIntArray)
-          case StringType() => sym.setType(Types.TString)
-          case Identifier(value: String) => {
-            sym.setType(Types.TObject(gs.lookupClass(value).getOrElse(null)))
-            //val class_ref = gs.lookupClass(value).getOrElse(null) 
-            //if(class_ref != null) sym.setType(Types.TObject(class_ref))
-            //else fatal("Undeclared type: " + tpe.asInstanceOf[Identifier].value + ".", tpe)
-          }
-          //TODO if null pointer exception - this is a potential
+
+    }
+
+    //I have verified this, and integrated the setSymbol for this case; hence it's bullet proof
+    def setSymbolType(tpe: TypeTree, sym: Symbol): Unit = {
+      tpe match {
+        case BooleanType() => sym.setType(Types.TBoolean)
+        case IntType() => sym.setType(Types.TInt)
+        case IntArrayType() => sym.setType(Types.TIntArray)
+        case StringType() => sym.setType(Types.TString)
+        case Identifier(value: String) => {
+          setObjectTypeSymbol(tpe)
+          sym.setType(Types.TObject(gs.lookupClass(value).getOrElse(null)))
         }
       }
     }
 
-    def warningRound() = {
-      variable_syms.foreach(f => warning("Variable " + f._2.name + " is declared but never used.", f._2))
+    def setObjectTypeSymbol(tpe: TypeTree) = {
+      if (tpe.isInstanceOf[Identifier]) gs.lookupClass(tpe.asInstanceOf[Identifier].value) match {
+        case None => fatal("Undeclared type: " + tpe.asInstanceOf[Identifier].value + ".", tpe)
+        case Some(class_ref) => {
+          tpe.asInstanceOf[Identifier].setSymbol(class_ref).setType(class_ref.getType) //.setType(class_ref.getType)
+        }
+      }
     }
 
-    firstRound()
-terminateIfErrors
-    process_hierarchy()
-terminateIfErrors
+    //check if variables is unused and warn about it here
+    def warningRound() = variable_syms.foreach(f => warning("Variable " + f._2.name + " is declared but never used.", f._2))
+
+    //The rounds we run:
+    explore_classes() //Explores every class, its class variables, methods, methods parameters and variables
+    explore_methods()
+    terminateIfErrors
+    process_hierarchy() //Explore hierarchy settings parents and detect cycles
+    terminateIfErrors
     secondRound()
-terminateIfErrors
-    warningRound()
-terminateIfErrors
+    terminateIfErrors
+    warningRound() //Done, check if variables is unused and warn about it here
+    terminateIfErrors
     //    println(prog)
 
     // Step 1: Collect symbols in declarations
