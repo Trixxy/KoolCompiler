@@ -9,7 +9,7 @@ object NameAnalysis extends Pipeline[Program, Program] {
 
   def run(ctx: Context)(prog: Program): Program = {
     import ctx.reporter._
-    
+
     var gs = new GlobalScope
     var variable_syms = Map[Int, VariableSymbol]()
 
@@ -29,7 +29,7 @@ object NameAnalysis extends Pipeline[Program, Program] {
         }
 
         gs.lookupClass(c.id.value) match {
-          case None => {}
+          case None      => {}
           case Some(res) => error("Class " + c.id.value + " is defined more than once. First definition here: " + res.position, c.id)
         }
 
@@ -47,19 +47,20 @@ object NameAnalysis extends Pipeline[Program, Program] {
         //        }
 
         for (v <- c.vars) {
-          val tmp = new VariableSymbol(v.id.value).setPos(v.id)
-          
+          val tmp = _VarDeclaration(v)
+            /*new VariableSymbol(v.id.value).setPos(v.id)
+
           v.tpe match {
-            case BooleanType() => tmp.setType(Types.TBoolean)
-            case IntType() => tmp.setType(Types.TInt)
-            case IntArrayType() => tmp.setType(Types.TIntArray)
-            case StringType() => tmp.setType(Types.TString)
+            case BooleanType()             => tmp.setType(Types.TBoolean)
+            case IntType()                 => tmp.setType(Types.TInt)
+            case IntArrayType()            => tmp.setType(Types.TIntArray)
+            case StringType()              => tmp.setType(Types.TString)
             case Identifier(value: String) => tmp.setType(Types.TObject(gs.lookupClass(value).getOrElse(null)))
             //TODO if null pointer exception - this is a potential
-          }
-          
+          }*/
+
           cls.lookupVar(v.id.value) match {
-            case None => {}
+            case None          => {}
             case Some(var_ref) => error(var_ref.name + " is declared more than once. First definition here: " + var_ref.position, v.id)
           }
           cls.members += v.id.value -> tmp
@@ -67,7 +68,7 @@ object NameAnalysis extends Pipeline[Program, Program] {
         } //List[VarDecl]
         for (m <- c.methods) {
           cls.lookupMethod(m.id.value, false) match {
-            case None => cls.methods += m.id.value -> _MethodDeclaration(m, cls)
+            case None             => cls.methods += m.id.value -> _MethodDeclaration(m, cls)
             case Some(method_ref) => error("method '" + m.id.value + "' is defined twice. First definition here: " + method_ref.position, m)
           }
         } //List[MethodDecl])
@@ -79,12 +80,23 @@ object NameAnalysis extends Pipeline[Program, Program] {
       def _MethodDeclaration(m: MethodDecl, cls: ClassSymbol): MethodSymbol = {
         var ms = new MethodSymbol(m.id.value, cls).setPos(m)
 
+        matchingType(m.retType, ms)
+        /*m.retType match {
+          case BooleanType()             => ms.setType(Types.TBoolean)
+          case IntType()                 => ms.setType(Types.TInt)
+          case IntArrayType()            => ms.setType(Types.TIntArray)
+          case StringType()              => ms.setType(Types.TString)
+          case Identifier(value: String) => ms.setType(Types.TObject(gs.lookupClass(value).getOrElse(null)))
+          //TODO if null pointer exception - this is a potential
+        }*/
+
         for (a <- m.args) {
           ms.lookupVar(a.id.value) match {
             case (_, 2) => error("Parameter name " + a.id.value + " is used twice in " + m.id.value + ".", a)
             case (_, 0) => {
-              ms.params += a.id.value -> new VariableSymbol(a.id.value).setPos(a.id)
-              ms.argList = ms.argList :+ new VariableSymbol(a.id.value).setPos(a.id)
+              val tmp = _FormalDeclaration(a)
+              ms.params += a.id.value -> tmp //new VariableSymbol(a.id.value).setPos(a.id)
+              ms.argList = ms.argList :+ tmp//new VariableSymbol(a.id.value).setPos(a.id)
             }
             case (_, _) => {}
           }
@@ -92,18 +104,65 @@ object NameAnalysis extends Pipeline[Program, Program] {
 
         for (v <- m.vars) {
           ms.lookupVar(v.id.value) match {
-            case (_, 2) => error("Declaration of " + v.id.value + " as local shadows method parameter of the same name.", v.id)
+            case (_, 2)               => error("Declaration of " + v.id.value + " as local shadows method parameter of the same name.", v.id)
             case (Some(firstDecl), 1) => error(v.id.value + " is declared more than once. First declaration here: " + firstDecl.position, v.id)
             case (_, 0) => {
-              val tmp = new VariableSymbol(v.id.value).setPos(v.id)
+              val tmp = _VarDeclaration(v)
+              /*new VariableSymbol(v.id.value).setPos(v.id)
+              v.tpe match {
+                case BooleanType()             => tmp.setType(Types.TBoolean)
+                case IntType()                 => tmp.setType(Types.TInt)
+                case IntArrayType()            => tmp.setType(Types.TIntArray)
+                case StringType()              => tmp.setType(Types.TString)
+                case Identifier(value: String) => tmp.setType(Types.TObject(gs.lookupClass(value).getOrElse(null)))
+                //TODO if null pointer exception - this is a potential
+              }*/
               ms.members += v.id.value -> tmp
               variable_syms += tmp.id -> tmp
             }
-            case (_, _) => {}
+            case (_, _) => ???
           }
         }
 
         ms
+      }
+
+      def _VarDeclaration(v: VarDecl): VariableSymbol = {
+        val tmp = new VariableSymbol(v.id.value).setPos(v.id)
+        matchingType(v.tpe, tmp)
+        /*v.tpe match {
+          case BooleanType()             => tmp.setType(Types.TBoolean)
+          case IntType()                 => tmp.setType(Types.TInt)
+          case IntArrayType()            => tmp.setType(Types.TIntArray)
+          case StringType()              => tmp.setType(Types.TString)
+          case Identifier(value: String) => tmp.setType(Types.TObject(gs.lookupClass(value).getOrElse(null)))
+          //TODO if null pointer exception - this is a potential
+        }*/
+        tmp
+      }
+      def _FormalDeclaration(v: Formal): VariableSymbol = {
+        val tmp = new VariableSymbol(v.id.value).setPos(v.id)
+        matchingType(v.tpe, tmp)
+        /*v.tpe match {
+          case BooleanType()             => tmp.setType(Types.TBoolean)
+          case IntType()                 => tmp.setType(Types.TInt)
+          case IntArrayType()            => tmp.setType(Types.TIntArray)
+          case StringType()              => tmp.setType(Types.TString)
+          case Identifier(value: String) => tmp.setType(Types.TObject(gs.lookupClass(value).getOrElse(null)))
+          //TODO if null pointer exception - this is a potential
+        }*/
+        tmp
+      }
+      
+      def matchingType(tpe: TypeTree, sym: Symbol): Unit = {
+        tpe match {
+          case BooleanType()             => sym.setType(Types.TBoolean)
+          case IntType()                 => sym.setType(Types.TInt)
+          case IntArrayType()            => sym.setType(Types.TIntArray)
+          case StringType()              => sym.setType(Types.TString)
+          case Identifier(value: String) => sym.setType(Types.TObject(gs.lookupClass(value).getOrElse(null)))
+          //TODO if null pointer exception - this is a potential
+        }
       }
     }
 
@@ -200,7 +259,7 @@ object NameAnalysis extends Pipeline[Program, Program] {
         for (v <- c.vars) {
           if (v.tpe.isInstanceOf[Identifier]) {
             gs.lookupClass(v.tpe.asInstanceOf[Identifier].value) match {
-              case None => fatal("Undeclared type: " + v.tpe.asInstanceOf[Identifier].value + ".", v.tpe)
+              case None            => fatal("Undeclared type: " + v.tpe.asInstanceOf[Identifier].value + ".", v.tpe)
               case Some(class_ref) => v.tpe.asInstanceOf[Identifier].setSymbol(class_ref).setType(class_ref.getType)
             }
           }
@@ -211,7 +270,7 @@ object NameAnalysis extends Pipeline[Program, Program] {
             case None => {}
             case Some(parent_ref) => {
               parent_ref.lookupVar(v.name) match {
-                case None => {}
+                case None          => {}
                 case Some(var_ref) => { error(v.name + " member declaration overrides previous declaration at " + var_ref.position, v) }
               }
             }
@@ -255,20 +314,20 @@ object NameAnalysis extends Pipeline[Program, Program] {
 
         for (a <- m.args) {
           currentMs.lookupVar(a.id.value) match {
-            case (None, _) => sys.error("Internal error, please report with error code 4.")
+            case (None, _)          => sys.error("Internal error, please report with error code 4.")
             case (Some(var_ref), _) => a.id.setSymbol(var_ref).setType(var_ref.getType)
           }
         }
         for (v <- m.vars) {
           currentMs.lookupVar(v.id.value) match {
-            case (None, _) => sys.error("Internal error, please report with error code 5.")
+            case (None, _)          => sys.error("Internal error, please report with error code 5.")
             case (Some(var_ref), _) => v.id.setSymbol(var_ref).setType(var_ref.getType)
           }
         }
 
         for (v <- m.vars) {
           if (v.tpe.isInstanceOf[Identifier]) gs.lookupClass(v.tpe.asInstanceOf[Identifier].value) match {
-            case None => fatal("Undeclared type: " + v.tpe.asInstanceOf[Identifier].value + ".", v.tpe)
+            case None            => fatal("Undeclared type: " + v.tpe.asInstanceOf[Identifier].value + ".", v.tpe)
             case Some(class_ref) => v.tpe.asInstanceOf[Identifier].setSymbol(class_ref).setType(class_ref.getType)
           }
         }
@@ -287,7 +346,7 @@ object NameAnalysis extends Pipeline[Program, Program] {
             _Expression(expr, ms)
             _Statement(thn, ms)
             els match {
-              case None => {}
+              case None      => {}
               case Some(res) => _Statement(res, ms)
             }
           }
