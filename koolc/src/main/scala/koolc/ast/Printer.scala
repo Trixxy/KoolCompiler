@@ -93,9 +93,10 @@ object Printer {
         sb.append("String")
       }
       case Block(stats: List[StatTree]) => {
+        sb.append(indent(depth))
         sb.append("{\n")
-        sb.append(expandList(stats, depth))
-        sb.append(indent(depth-1))
+        sb.append(expandList(stats, depth+1))
+        sb.append(indent(depth))
         sb.append("}\n")
       }
       case If(expr: ExprTree, thn: StatTree, els: Option[StatTree]) => {
@@ -212,7 +213,6 @@ object Printer {
         sb.append(Printer(obj))
         sb.append(".")
         sb.append(Printer(meth))
-        sb.append("#??") //TODO With typechecking
         sb.append("(")
         //ARGUMENTS WITH ', '
         var first = true

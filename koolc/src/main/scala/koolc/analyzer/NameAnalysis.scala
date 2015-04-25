@@ -132,6 +132,8 @@ object NameAnalysis extends Pipeline[Program, Program] {
       //MethodDecl(retType: TypeTree, id: Identifier, args: List[Formal], vars: List[VarDecl], stats: List[StatTree], retExpr: ExprTree)
       def _MethodDeclaration(m: MethodDecl, cls: ClassSymbol): MethodSymbol = {
         var ms = new MethodSymbol(m.id.value, cls).setPos(m)
+        
+        setSymbolType(m.retType, ms)
 
         for (a <- m.args) { //For each parameter, check the name
           ms.lookupVar(a.id.value) match {
@@ -172,13 +174,11 @@ object NameAnalysis extends Pipeline[Program, Program] {
       }
     }
 
-    /////////////////////////////////////////////////////////////////////////////////////////////////////
-    /////////////////////////////////////////////////////////////////////////////////////////////////////
-    /////////////////////////////////////////////////////////////////////////////////////////////////////
-    /////////////////////////////////////////////////////////////////////////////////////////////////////
-    def secondRound() {
-
+    def explore_mainObject() = {
       prog.main.stats.foreach(s => _Statement(s, new MethodSymbol(null, null)))
+    }
+
+    def explore_classHierarchy() = {
       prog.classes.foreach(c => _ClassDeclaration(c))
 
       //ClassDecl(id: Identifier, parent: Option[Identifier], vars: List[VarDecl], methods: List[MethodDecl])
@@ -196,7 +196,6 @@ object NameAnalysis extends Pipeline[Program, Program] {
           }
         }
 
-        //TODO just double check overridden in type checking
         if (!currentCls.parent.isEmpty) {
           val parent_ref = currentCls.parent.get
 
@@ -207,180 +206,246 @@ object NameAnalysis extends Pipeline[Program, Program] {
                 m.overridden = parent_ref.lookupMethod(m.name)
                 if (method_ref.argList.size != m.argList.size)
                   error(m.name + " overrides previous definition from " + method_ref.position + " with a different number of parameters.", m)
-                else if (!argTypesEqual(method_ref.argList, m.argList)) {
-                  error("method argument types å la no matches") //TODO come up with something beautiful 
-                }
+                else argTypesEqual(method_ref.argList, m.argList)
               }
             }
           }
-          def argTypesEqual(l1: List[VariableSymbol], l2: List[VariableSymbol]): Boolean = {
-            if (l1.isEmpty) true
+          def argTypesEqual(l1: List[VariableSymbol], l2: List[VariableSymbol]): Unit = {
+            if (l1.isEmpty) return
             else if (l1.head.getType == l2.head.getType) argTypesEqual(l1.tail, l2.tail)
-            else false
+            else error("Formal type in overriding method " + l2.head.name + " does not match type in overridden method.", l2.head)
           }
         }
-
-        c.methods.foreach(m => _MethodDeclaration(m, currentCls)) //List[MethodDecl])
       }
+    }
 
+    def explore_methodStatements() {
+      prog.classes.foreach(c => c.methods.foreach(m => _MethodDeclaration(m))) //List[MethodDecl])
+      prog.classes.foreach(c => c.methods.foreach(m => _MethodOverridden(m))) //List[MethodDecl])
+      prog.classes.foreach(c => c.methods.foreach(m => m.stats.foreach(s => _Statement(s, m.getSymbol))))
+      
       //MethodDecl(retType: TypeTree, id: Identifier, args: List[Formal], vars: List[VarDecl], stats: List[StatTree], retExpr: ExprTree)
-      def _MethodDeclaration(m: MethodDecl, cls: ClassSymbol) = {
-        setSymbolType(m.retType, m.getSymbol)
-        m.stats.foreach(s => _Statement(s, m.getSymbol))
+      def _MethodDeclaration(m: MethodDecl) = {
         _Expression(m.retExpr, m.getSymbol)
+        m.retType.setType(m.getSymbol.getType)
       }
 
-      def _Statement(s: StatTree, ms: MethodSymbol): Unit = {
-        s match {
-          case Block(stats: List[StatTree]) => {
-            stats.foreach(stat => _Statement(stat, ms))
+      def _MethodOverridden(m: MethodDecl) = {
+        val methOverridden = m.getSymbol.overridden.getOrElse(null)
+        if (methOverridden != null && m.getSymbol.getType != methOverridden.getType) {
+          error("Method " + methOverridden.name + " overrides parent method with a different return type (" +
+            m.getSymbol.getType + " and " + methOverridden.getType + ")", m.retExpr)
+        }
+      }
+    }
+
+    def _Statement(s: StatTree, ms: MethodSymbol): Unit = {
+      s match {
+        case Block(stats: List[StatTree]) => {
+          stats.foreach(stat => _Statement(stat, ms))
+        }
+        case If(expr: ExprTree, thn: StatTree, els: Option[StatTree]) => {
+          _Expression(expr, ms)
+          _Statement(thn, ms)
+          els match {
+            case None => {}
+            case Some(res) => _Statement(res, ms)
           }
-          case If(expr: ExprTree, thn: StatTree, els: Option[StatTree]) => {
-            _Expression(expr, ms)
-            _Statement(thn, ms)
-            els match {
-              case None => {}
-              case Some(res) => _Statement(res, ms)
+        }
+        case While(expr: ExprTree, stat: StatTree) => {
+          _Expression(expr, ms)
+          _Statement(stat, ms)
+        }
+        case Println(expr: ExprTree) => {
+          _Expression(expr, ms)
+        }
+        case Assign(id: Identifier, expr: ExprTree) => {
+          if (ms.name == null) {
+            error("Undeclared identifier: " + id.value)
+          }
+          ms.lookupVar(id.value) match {
+            case (None, _) => error("Undeclared identifier: " + id.value + ".", id)
+            case (Some(var_ref), _) => {
+              _Expression(id, ms)
+              _Expression(expr, ms)
             }
           }
-          case While(expr: ExprTree, stat: StatTree) => {
-            _Expression(expr, ms)
-            _Statement(stat, ms)
+        }
+        case ArrayAssign(id: Identifier, index: ExprTree, expr: ExprTree) => {
+          if (ms.name == null) {
+            error("Undeclared identifier: " + id.value)
           }
-          case Println(expr: ExprTree) => {
-            _Expression(expr, ms)
-          }
-          case Assign(id: Identifier, expr: ExprTree) => {
-            if (ms.name == null) {
-              error("Undeclared identifier: " + id.value)
-            }
-            ms.lookupVar(id.value) match {
-              case (None, _) => error("Undeclared identifier: " + id.value + ".", id)
-              case (Some(var_ref), _) => {
-                _Expression(id, ms)
-                _Expression(expr, ms)
-              }
-            }
-          }
-          case ArrayAssign(id: Identifier, index: ExprTree, expr: ExprTree) => {
-            if (ms.name == null) {
-              error("Undeclared identifier: " + id.value)
-            }
-            ms.lookupVar(id.value) match {
-              case (None, _) => error("'" + id.value + "' was not declared in this scope at " + id.position)
-              case (Some(var_ref), _) => {
-                _Expression(id, ms)
-                _Expression(index, ms)
-                _Expression(expr, ms)
-              }
+          ms.lookupVar(id.value) match {
+            case (None, _) => error("'" + id.value + "' was not declared in this scope at " + id.position)
+            case (Some(var_ref), _) => {
+              _Expression(id, ms)
+              _Expression(index, ms)
+              _Expression(expr, ms)
             }
           }
         }
       }
+    }
 
-      def _Expression(expr: ExprTree, ms: MethodSymbol): ClassSymbol = {
-        var newClass: ClassSymbol = null
-        expr match {
-          case And(lhs: ExprTree, rhs: ExprTree) => {
-            _Expression(lhs, ms)
-            _Expression(rhs, ms)
-          }
-          case Or(lhs: ExprTree, rhs: ExprTree) => {
-            _Expression(lhs, ms)
-            _Expression(rhs, ms)
-          }
-          case Plus(lhs: ExprTree, rhs: ExprTree) => {
-            _Expression(lhs, ms)
-            _Expression(rhs, ms)
-          }
-          case Minus(lhs: ExprTree, rhs: ExprTree) => {
-            _Expression(lhs, ms)
-            _Expression(rhs, ms)
-          }
-          case Times(lhs: ExprTree, rhs: ExprTree) => {
-            _Expression(lhs, ms)
-            _Expression(rhs, ms)
-          }
-          case Div(lhs: ExprTree, rhs: ExprTree) => {
-            _Expression(lhs, ms)
-            _Expression(rhs, ms)
-          }
-          case LessThan(lhs: ExprTree, rhs: ExprTree) => {
-            _Expression(lhs, ms)
-            _Expression(rhs, ms)
-          }
-          case Equals(lhs: ExprTree, rhs: ExprTree) => {
-            _Expression(lhs, ms)
-            _Expression(rhs, ms)
-          }
-          case ArrayRead(arr: ExprTree, index: ExprTree) => {
-            _Expression(arr, ms)
-            _Expression(index, ms)
-          }
-          case ArrayLength(arr: ExprTree) => {
-            _Expression(arr, ms)
-          }
-          case MethodCall(obj: ExprTree, meth: Identifier, args: List[ExprTree]) => {
-            val tmp = _Expression(obj, ms)
-            if (tmp != null)
-              tmp.lookupMethod(meth.value) match {
-                case None => error("'" + meth.value + "' was not declared in this scope at " + meth.position)
-                case Some(method_ref) => {
-                  meth.setSymbol(method_ref).setType(method_ref.getType)
-                  args.foreach(a => _Expression(a, method_ref))
+    def _Expression(expr: ExprTree, ms: MethodSymbol): Unit = {
+      expr match {
+        case And(lhs: ExprTree, rhs: ExprTree) => {
+          _Expression(lhs, ms)
+          _Expression(rhs, ms)
+
+          if (lhs.getType == Types.TBoolean && rhs.getType == Types.TBoolean) expr.setType(Types.TBoolean)
+          else expr.setType(Types.TError)
+        }
+        case Or(lhs: ExprTree, rhs: ExprTree) => {
+          _Expression(lhs, ms)
+          _Expression(rhs, ms)
+
+          if (lhs.getType == Types.TBoolean && rhs.getType == Types.TBoolean) expr.setType(Types.TBoolean)
+          else expr.setType(Types.TError)
+        }
+        case Plus(lhs: ExprTree, rhs: ExprTree) => {
+          _Expression(lhs, ms)
+          _Expression(rhs, ms)
+
+          //    T1 = TInt and T2 = TInt implies Ts = TInt
+          //    T1 = TString and T2 = TInt implies Ts = TString
+          //    T1 = TInt and T2 = TString implies Ts = TString
+          //    T1 = TString and T2 = TString implies Ts = TString
+          
+          if (lhs.getType == Types.TInt && rhs.getType == Types.TInt) expr.setType(Types.TInt)
+          else if ((lhs.getType == Types.TInt && rhs.getType == Types.TString)
+            || (lhs.getType == Types.TString && rhs.getType == Types.TInt)
+            || (lhs.getType == Types.TString && rhs.getType == Types.TString)) expr.setType(Types.TString)
+          else expr.setType(Types.TError)
+        }
+        case Minus(lhs: ExprTree, rhs: ExprTree) => {
+          _Expression(lhs, ms)
+          _Expression(rhs, ms)
+
+          if (lhs.getType == Types.TInt && rhs.getType == Types.TInt) expr.setType(Types.TInt)
+          else expr.setType(Types.TError)
+        }
+        case Times(lhs: ExprTree, rhs: ExprTree) => {
+          _Expression(lhs, ms)
+          _Expression(rhs, ms)
+
+          if (lhs.getType == Types.TInt && rhs.getType == Types.TInt) expr.setType(Types.TInt)
+          else expr.setType(Types.TError)
+        }
+        case Div(lhs: ExprTree, rhs: ExprTree) => {
+          _Expression(lhs, ms)
+          _Expression(rhs, ms)
+
+          if (lhs.getType == Types.TInt && rhs.getType == Types.TInt) expr.setType(Types.TInt)
+          else expr.setType(Types.TError)
+        }
+        case LessThan(lhs: ExprTree, rhs: ExprTree) => {
+          _Expression(lhs, ms)
+          _Expression(rhs, ms)
+
+          if (lhs.getType == Types.TInt && rhs.getType == Types.TInt) expr.setType(Types.TBoolean)
+          else expr.setType(Types.TError)
+        }
+        case Equals(lhs: ExprTree, rhs: ExprTree) => {
+          _Expression(lhs, ms)
+          _Expression(rhs, ms)
+
+          //          	T1 		T2 		type checks?
+          //			int 	int 	yes
+          //			string 	string 	yes
+          //			string 	A 		no
+          //			A 		int 	no
+          //			A 		B 		yes
+          //			A 		int[] 	no
+          //			int 	int[] 	no
+
+          if (lhs.getType == rhs.getType && (lhs.getType == Types.TInt || lhs.getType == Types.TString || lhs.getType == Types.TObject)) expr.setType(Types.TBoolean)
+          else expr.setType(Types.TError)
+        }
+        case ArrayRead(arr: ExprTree, index: ExprTree) => {
+          _Expression(arr, ms)
+          _Expression(index, ms)
+
+          if(arr.getType == Types.TIntArray && index.getType == Types.TInt) expr.setType(Types.TInt)
+          else expr.setType(Types.TError)
+        }
+        case ArrayLength(arr: ExprTree) => {
+          _Expression(arr, ms)
+
+          if(arr.getType == Types.TIntArray) expr.setType(Types.TInt)
+          else expr.setType(Types.TError)
+        }
+        case MethodCall(obj: ExprTree, meth: Identifier, args: List[ExprTree]) => {
+          _Expression(obj, ms)
+          val tmp = gs.lookupClass(obj.getType.toString()).getOrElse(null)
+          if (tmp != null) {
+            tmp.lookupMethod(meth.value) match {
+              case None => error("'" + meth.value + "' was not declared in this scope at " + meth.position)
+              case Some(method_ref) => {
+                args.foreach(a => _Expression(a, ms)) //TODO
+
+                meth.setSymbol(method_ref).setType(method_ref.getType)
+                expr.setType(method_ref.getType)
+                if(args.size == method_ref.argList.size) argTypesEqual(args, method_ref.argList)
+                else error("Call to method " + method_ref.name + " with a different number of parameters.", ms)
+                def argTypesEqual(l1: List[ExprTree], l2: List[VariableSymbol]): Unit = {
+                  if (l1.isEmpty) return                  
+                  else if (l1.head.getType.isSubTypeOf(l2.head.getType)) argTypesEqual(l1.tail, l2.tail)
+                  else error("Formal type in method call " + l2.head.name + " does not match type in refered method.", l1.head)
                 }
               }
-
-          }
-          case IntLit(value: Int) => {
-
-          }
-          case StringLit(value: String) => {
-
-          }
-
-          case True() => {
-
-          }
-          case False() => {
-
-          }
-          case Identifier(value: String) => {
-            ms.lookupVar(value) match {
-              case (None, _) => error("Undeclared identifier: " + value, expr)
-              case (Some(class_ref), _) => {
-                expr.asInstanceOf[Identifier].setSymbol(class_ref).setType(class_ref.getType)
-
-                variable_syms -= expr.asInstanceOf[Identifier].getSymbol.id
-                newClass = ms.classSymbol
-              }
             }
           }
+        }
+        case IntLit(value: Int) => {
+          expr.setType(Types.TInt)
+        }
+        case StringLit(value: String) => {
+          expr.setType(Types.TString)
+        }
 
-          case This() => {
-
-          }
-          case NewIntArray(size: ExprTree) => {
-            _Expression(size, ms)
-          }
-          case New(tpe: Identifier) => {
-            gs.lookupClass(tpe.value) match {
-              case None => error("Undeclared type: " + tpe.value + ".", tpe)
-              case Some(class_ref) => {
-                tpe.setSymbol(class_ref).setType(class_ref.getType);
-                //		        _Expression(tpe, ms)
-                newClass = class_ref
-              }
+        case True() => {
+          expr.setType(Types.TBoolean)
+        }
+        case False() => {
+          expr.setType(Types.TBoolean)
+        }
+        case Identifier(value: String) => {
+          ms.lookupVar(value) match {
+            case (None, _) => error("Undeclared identifier: " + value, expr)
+            case (Some(var_ref), _) => {
+              expr.asInstanceOf[Identifier].setSymbol(var_ref).setType(var_ref.getType)
+              expr.setType(var_ref.getType)
+              variable_syms -= expr.asInstanceOf[Identifier].getSymbol.id
             }
-          }
-          case Not(expr: ExprTree) => {
-            _Expression(expr, ms)
           }
         }
 
-        if (newClass != null) newClass else ms.classSymbol
+        case This() => {
+          expr.setType(ms.classSymbol.getType)
+        }
+        case NewIntArray(size: ExprTree) => {
+          _Expression(size, ms)
+          
+          if(size.getType == Types.TInt) expr.setType(Types.TIntArray)
+          else expr.setType(Types.TError)
+        }
+        case New(tpe: Identifier) => {
+          gs.lookupClass(tpe.value) match {
+            case None => error("Undeclared type: " + tpe.value + ".", tpe)
+            case Some(class_ref) => {
+              tpe.setSymbol(class_ref).setType(class_ref.getType);
+              expr.setType(class_ref.getType)
+            }
+          }
+        }
+        case Not(nexpr: ExprTree) => {
+          _Expression(nexpr, ms)
+          
+          if(nexpr.getType == Types.TBoolean) expr.setType(Types.TBoolean)
+          else expr.setType(Types.TError)
+        }
       }
-
     }
 
     //I have verified this, and integrated the setSymbol for this case; hence it's bullet proof
@@ -415,7 +480,9 @@ object NameAnalysis extends Pipeline[Program, Program] {
     terminateIfErrors
     process_hierarchy() //Explore hierarchy settings parents and detect cycles
     terminateIfErrors
-    secondRound()
+    explore_mainObject()
+    explore_classHierarchy()
+    explore_methodStatements()
     terminateIfErrors
     warningRound() //Done, check if variables is unused and warn about it here
     terminateIfErrors

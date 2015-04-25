@@ -32,7 +32,7 @@ object Types {
       case TInt => true
       case _ => false
     }
-    override def toString = "int"
+    override def toString = "Int"
   }
   
   case object TIntArray extends Type {
@@ -47,7 +47,7 @@ object Types {
       case TBoolean => true
       case _ => false
     }
-    override def toString = "boolean"
+    override def toString = "Boolean"
   }
   
   case object TString extends Type {
@@ -55,14 +55,14 @@ object Types {
       case TString => true
       case _ => false
     }
-    override def toString = "string"
+    override def toString = "String"
   }
 
   case class TObject(classSymbol: ClassSymbol) extends Type {
     override def isSubTypeOf(tpe: Type): Boolean = {
       var tmp_cls = classSymbol
       var ret = false
-      while(tmp_cls != null) {
+      while(!ret && tmp_cls != null) {
         if(tmp_cls.getType == tpe) ret = true
         else tmp_cls = tmp_cls.parent.getOrElse(null)
       }

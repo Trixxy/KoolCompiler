@@ -5,25 +5,15 @@ mycode.kool:13:9: Warning: Variable b is declared but never used.
 */
 
 object Example {def main(): Unit = {
-  println(new B().foo());
+{{
+  println(1+new A());
+    if(true){
+    }
+  }}
 }}
 
-class A extends B{
-  
-  def foo(a: A) : Int = {
-    var b: Int;
-    return a;
-  }
-
+class A{
 }
 
-class B extends C {
-  
-}
 
-class C {
-  var a: Int;
-  def foo(a: B): Int = {
-    return a;
-  }
-}
+//          println(lhs.getType+" + "+rhs.getType+" = "+expr.getType)
