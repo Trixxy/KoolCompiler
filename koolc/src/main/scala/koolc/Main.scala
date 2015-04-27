@@ -6,6 +6,7 @@ import java.io.File
 import lexer._
 import ast._
 import analyzer._
+import code._
 
 object Main {
 
@@ -20,7 +21,7 @@ object Main {
         outDir = Some(new File(out))
         processOption(args)
 
-      case f ::args =>
+      case f :: args =>
         files = new File(f) :: files
         processOption(args)
 
@@ -30,29 +31,31 @@ object Main {
     processOption(args.toList)
 
     if (files.size != 1) {
-      reporter.fatal("Exactly one file expected, "+files.size+" file(s) given.")
+      reporter.fatal("Exactly one file expected, " + files.size + " file(s) given.")
     }
 
     Context(reporter = reporter, file = files.head, outDir = outDir)
   }
 
-
   def main(args: Array[String]) {
     val ctx = processOptions(args)
 
-    val pipeline = Lexer andThen
-                   Parser andThen
-                   NameAnalysis andThen
-                   TypeChecking
+    val pipelineFrontend = Lexer andThen
+      Parser andThen
+      NameAnalysis andThen
+      TypeChecking
 
+    if ( /* TODO: test if tokens or AST should be printed */ false) {
+      val program = pipelineFrontend.run(ctx)(ctx.file)
+      println(Printer(program))
+    } else { // generate code
+      val pipeline = pipelineFrontend andThen CodeGeneration
+      pipeline.run(ctx)(ctx.file)
+    }
+  }
 
-    val program = pipeline.run(ctx)(ctx.file)
-
-    println(Printer(program))
-
-    
-    //IF WE ANT TO TEST THE PARSER
-    /*val ctx = processOptions(args)
+  //IF WE ANT TO TEST THE PARSER
+  /*val ctx = processOptions(args)
 
     val pipeline = Lexer andThen Parser
 
@@ -60,9 +63,8 @@ object Main {
     
     println(Printer(program))*/
 
-    
-    //IF WE WANT TO TEST THE LEXER
-    /*val ctx = processOptions(args)
+  //IF WE WANT TO TEST THE LEXER
+  /*val ctx = processOptions(args)
 
     val pipeline = Lexer andThen PrintTokens
 
@@ -72,5 +74,4 @@ object Main {
       t
       println()
     }*/
-  }
 }

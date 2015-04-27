@@ -103,8 +103,8 @@ object Printer {
         sb.append(indent(depth))
         sb.append("if(")
         sb.append(Printer(expr))
-        sb.append(")")
-        sb.append(Printer(thn, depth+1))
+        sb.append(")\n")
+        sb.append(Printer(thn, if(thn.isInstanceOf[Block]) depth else depth+1))
         els match {
           case None => ""
           case Some(value) => {
