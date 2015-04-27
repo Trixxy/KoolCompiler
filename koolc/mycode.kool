@@ -6,13 +6,19 @@ mycode.kool:13:9: Warning: Variable b is declared but never used.
 
 object Example {def main(): Unit = {
 {{
-  println(1+new A());
-    if(true){
-    }
+    if(true) { println(1); }
+    
   }}
 }}
 
-class A{
+class A extends B{
+  def foo() : B = {
+  
+  return new B();
+  }
+}
+
+class B{
 }
 
 
