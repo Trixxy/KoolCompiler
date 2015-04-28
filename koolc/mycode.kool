@@ -4,21 +4,45 @@ mycode.kool:13:9: Warning: Variable b is declared but never used.
          ^
 */
 
-object Example {def main(): Unit = {
-{{
-    if(true) { println(1); }
-    
-  }}
-}}
+object Example {
+  def main(): Unit = {
+    /*while(1 < 2) {
+      println("true");
+    }*/ //else {println("false");}
+    println(new B().foo());
+  }
+  
+}
 
-class A extends B{
+/*class A extends B{
   def foo() : B = {
   
   return new B();
   }
-}
+}*/
 
-class B{
+class B {
+  def foo(): Int = {
+/*
+    var hej1: Int;
+    var hej2: Int;
+    var hej3: Int;
+    var hej4: Int;
+    var hej5: Int;
+    hej1 = 0;
+    hej2 = 1;
+    hej3 = 2;
+    hej4 = 3;
+    hej5 = 4;
+    */
+    /*var i : Int;
+    i = 0;
+    while(i < 7){
+      println("Hello "+ i);
+      i = i + 1;  
+    }*/
+    return 7;
+  }
 }
 
 
