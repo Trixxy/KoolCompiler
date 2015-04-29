@@ -23,7 +23,8 @@ object CodeGeneration extends Pipeline[Program, Unit] {
       classFile.addDefaultConstructor
 
       for (v <- ct.vars) {
-        PutField(ct.id.value, v.id.value, getTypeNotation(v.tpe.getType))
+        println("PutField("+ct.id.value+", "+v.id.value+", "+getTypeNotation(v.getSymbol.getType)+")")
+        PutField(ct.id.value, v.id.value, getTypeNotation(v.getSymbol.getType))
       }
 
       for (m <- ct.methods) {
@@ -260,12 +261,11 @@ object CodeGeneration extends Pipeline[Program, Unit] {
           if (slotOf.get(sym.id).isEmpty) {
             println("Identifier----> "+slotOf+" <- "+expr)
             println("GETFIELD("+expr.getType.toString()+", "+sym.name+", "+getTypeNotation(expr.getType)+")")
-            ch << GetField("B", sym.name, getTypeNotation(expr.getType))
+            ch << GetField("B", sym.name, getTypeNotation(expr.getType)) 
           } else {
             val slot = slotOf.get(sym.id).get
             if (sym.getType == TInt || sym.getType == TBoolean) ch << ILoad(slot)
             else ch << ALoad(slot)
-
           }
         }
         case This() => {
