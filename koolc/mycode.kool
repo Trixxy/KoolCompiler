@@ -16,33 +16,25 @@ object Example {
 
 /*class A extends B{
   def foo() : B = {
-  
-  return new B();
+    return new B();
   }
 }*/
 
 class B {
+  var hej: Int;
   def foo(): Int = {
-/*
-    var hej1: Int;
-    var hej2: Int;
-    var hej3: Int;
+    var i : Int;
+    i = 10;
+    hej = 100;
+    return hej;
+  }
+  /*def foo2(): Int = {
     var hej4: Int;
     var hej5: Int;
-    hej1 = 0;
-    hej2 = 1;
-    hej3 = 2;
     hej4 = 3;
     hej5 = 4;
-    */
-    /*var i : Int;
-    i = 0;
-    while(i < 7){
-      println("Hello "+ i);
-      i = i + 1;  
-    }*/
-    return 7;
-  }
+    return 10;
+  }*/
 }
 
 

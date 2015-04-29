@@ -22,15 +22,16 @@ object CodeGeneration extends Pipeline[Program, Unit] {
       classFile.setSourceFile(sourceName)
       classFile.addDefaultConstructor
 
-      //      for (v <- ct.vars) {
-      //        PutField(ct.id.value, v.id.value, getTypeNotation(v.tpe.getType))
-      //      }
+      for (v <- ct.vars) {
+        PutField(ct.id.value, v.id.value, getTypeNotation(v.tpe.getType))
+      }
 
       for (m <- ct.methods) {
         var loa = List[String]()
         m.args.foreach(a => loa = loa :+ getTypeNotation(a.tpe.getType))
         val mh = classFile.addMethod(getTypeNotation(m.retType.getType), m.id.value, loa)
         generateMethodCode(mh.codeHandler, m)
+        mh.codeHandler.print
       }
 
       //      //DO SOME STUFF
@@ -48,12 +49,23 @@ object CodeGeneration extends Pipeline[Program, Unit] {
     // of the stack frame
     def generateMethodCode(ch: CodeHandler, mt: MethodDecl): Unit = {
       val methSym = mt.getSymbol
+      var slotOf = Map[Int, Int]()
+      var i = 1
       //      var vars = List[Int]()
       //      mt.vars.foreach(v => vars = vars :+ ch.getFreshVar(2))
       //ch.
-      mt.stats.foreach(s => compileStat(ch, s))
-      compileExpr(ch, mt.retExpr)
+      
+      //Generate code for the arguments and variables
+      mt.args.foreach(a => { slotOf += (a.getSymbol.id -> i); i += 1; })
+      mt.vars.foreach(v => { slotOf += (v.getSymbol.id -> i); i += 1; })
 
+      //Generate code for the method body
+      mt.stats.foreach(s => compileStat(ch, s, slotOf))
+      
+      println("+++"+mt.getSymbol.classSymbol.name+"+++")
+      
+      //Generate code for the return statement
+      compileExpr(ch, mt.retExpr, slotOf)
       methSym.getType match {
         case TInt | TBoolean => ch << IRETURN
         case TString => ch << ARETURN
@@ -69,12 +81,13 @@ object CodeGeneration extends Pipeline[Program, Unit] {
 
     def generateMainMethodCode(ch: CodeHandler, stmts: List[StatTree], cname: String): Unit = {
       // TODO: Emit code
-      stmts.foreach(s => compileStat(ch, s))
+      stmts.foreach(s => compileStat(ch, s, null))
       ch << RETURN
       ch.freeze
     }
 
-    def compileStat(ch: cafebabe.CodeHandler, stat: StatTree): Unit = {
+    def compileStat(ch: cafebabe.CodeHandler, stat: StatTree, slotOf: Map[Int, Int]): Unit = {
+      println(stat)
       stat match {
         /*case IntArrayType() =>
         case IntType() =>
@@ -82,21 +95,21 @@ object CodeGeneration extends Pipeline[Program, Unit] {
         case StringType() =>*/
 
         case Block(stats: List[StatTree]) => {
-          stats.foreach(s => compileStat(ch, s))
+          stats.foreach(s => compileStat(ch, s, slotOf))
         }
         case If(expr: ExprTree, thn: StatTree, els: Option[StatTree]) => {
           val nElse = ch.getFreshLabel("else")
 
-          compileExpr(ch, expr);
+          compileExpr(ch, expr, slotOf);
           ch << IfEq(nElse) //if pop != 0 
 
-          compileStat(ch, thn)
+          compileStat(ch, thn, slotOf)
 
           if (!els.isEmpty) {
             val nAfter = ch.getFreshLabel("after")
             ch << Goto(nAfter)
             ch << Label(nElse)
-            compileStat(ch, els.get)
+            compileStat(ch, els.get, slotOf)
             ch << Label(nAfter)
           } else ch << Label(nElse)
 
@@ -106,46 +119,57 @@ object CodeGeneration extends Pipeline[Program, Unit] {
           val break = ch.getFreshLabel("break")
 
           ch << Label(loop)
-          compileExpr(ch, expr)
+          compileExpr(ch, expr, slotOf)
 
           ch << IfEq(break) //if pop != 0 
-          compileStat(ch, stat)
+          compileStat(ch, stat, slotOf)
           ch << Goto(loop)
 
           ch << Label(break)
         }
         case Println(expr: ExprTree) => {
           ch << GetStatic("java/lang/System", "out", "Ljava/io/PrintStream;")
-          compileExpr(ch, expr)
+          compileExpr(ch, expr, slotOf)
           ch << InvokeVirtual("java/io/PrintStream", "println", if (expr.getType == TString) "(Ljava/lang/String;)V" else "(I)V")
         }
         case Assign(id: Identifier, expr: ExprTree) => {
-          //          compileExpr(ch, expr)
-
+          compileExpr(ch, expr, slotOf)
+          if (slotOf.get(id.getSymbol.id).isEmpty) {
+            println("ASSIGN ----> " + expr)
+            //TODO Problement är att vi inte kan få tag på class namnet utifrån det vi har nu, eller?
+            println("GETFIELD("+expr.getType.toString()+", "+id.value+", "+getTypeNotation(expr.getType)+")")
+            ch << GetField("B", id.value, getTypeNotation(expr.getType))
+          } else {
+            ch.getFreshVar(getTypeNotation(expr.getType))
+            val slot = slotOf.get(id.getSymbol.id).get
+            if (expr.getType == TInt || expr.getType == TBoolean) {
+              ch << IStore(slot)
+            } else ch << AStore(slot)
+          }
         }
         case ArrayAssign(id: Identifier, index: ExprTree, expr: ExprTree) =>
       }
     }
-    def compileExpr(ch: cafebabe.CodeHandler, expr: ExprTree): Unit = {
+    def compileExpr(ch: cafebabe.CodeHandler, expr: ExprTree, slotOf: Map[Int, Int]): Unit = {
       println(expr)
       expr match {
         case And(lhs: ExprTree, rhs: ExprTree) => {
           ch << Ldc(0)
           val earlyFalse = ch.getFreshLabel("ef")
-          compileExpr(ch, lhs)
+          compileExpr(ch, lhs, slotOf)
 
           ch << IfEq(earlyFalse) << POP
-          compileExpr(ch, rhs)
+          compileExpr(ch, rhs, slotOf)
 
           ch << Label(earlyFalse)
         }
         case Or(lhs: ExprTree, rhs: ExprTree) => {
           ch << Ldc(1)
           val earlyTrue = ch.getFreshLabel("et")
-          compileExpr(ch, lhs)
+          compileExpr(ch, lhs, slotOf)
 
           ch << IfNe(earlyTrue) << POP
-          compileExpr(ch, rhs)
+          compileExpr(ch, rhs, slotOf)
 
           ch << Label(earlyTrue)
 
@@ -156,18 +180,18 @@ object CodeGeneration extends Pipeline[Program, Unit] {
             case TString => {
               ch << DefaultNew("java/lang/StringBuilder")
 
-              compileExpr(ch, lhs)
+              compileExpr(ch, lhs, slotOf)
               ch << InvokeVirtual("java/lang/StringBuilder", "append", (if (lhs.getType == TString) "(Ljava/lang/String;)" else "(I)") + "Ljava/lang/StringBuilder;")
 
-              compileExpr(ch, rhs)
+              compileExpr(ch, rhs, slotOf)
               ch << InvokeVirtual("java/lang/StringBuilder", "append", (if (rhs.getType == TString) "(Ljava/lang/String;)" else "(I)") + "Ljava/lang/StringBuilder;")
 
               ch << InvokeVirtual("java/lang/StringBuilder", "toString", "()Ljava/lang/String;")
 
             }
             case TInt => {
-              compileExpr(ch, lhs)
-              compileExpr(ch, rhs)
+              compileExpr(ch, lhs, slotOf)
+              compileExpr(ch, rhs, slotOf)
 
               ch << IADD
             }
@@ -176,39 +200,39 @@ object CodeGeneration extends Pipeline[Program, Unit] {
 
         }
         case Minus(lhs: ExprTree, rhs: ExprTree) => {
-          compileExpr(ch, lhs)
-          compileExpr(ch, rhs)
+          compileExpr(ch, lhs, slotOf)
+          compileExpr(ch, rhs, slotOf)
           ch << ISUB
         }
         case Times(lhs: ExprTree, rhs: ExprTree) => {
-          compileExpr(ch, lhs)
-          compileExpr(ch, rhs)
+          compileExpr(ch, lhs, slotOf)
+          compileExpr(ch, rhs, slotOf)
           ch << IMUL
         }
         case Div(lhs: ExprTree, rhs: ExprTree) => {
-          compileExpr(ch, lhs)
-          compileExpr(ch, rhs)
+          compileExpr(ch, lhs, slotOf)
+          compileExpr(ch, rhs, slotOf)
           ch << IDIV
         }
         case LessThan(lhs: ExprTree, rhs: ExprTree) => {
           ch << Ldc(1)
-          compileExpr(ch, lhs)
-          compileExpr(ch, rhs)
+          compileExpr(ch, lhs, slotOf)
+          compileExpr(ch, rhs, slotOf)
           val fLabel = ch.getFreshLabel("lt")
           ch << If_ICmpLt(fLabel) << POP << Ldc(0) << Label(fLabel)
         }
         case Equals(lhs: ExprTree, rhs: ExprTree) => {
           val fLabel = ch.getFreshLabel("eq")
           ch << Ldc(0)
-          compileExpr(ch, rhs)
-          compileExpr(ch, lhs)
+          compileExpr(ch, rhs, slotOf)
+          compileExpr(ch, lhs, slotOf)
           ch << If_ICmpNe(fLabel) << POP << Ldc(1) << Label(fLabel)
         }
         case ArrayRead(arr: ExprTree, index: ExprTree) => //TODO ArrayRead
         case ArrayLength(arr: ExprTree) => //TODO ArrayLength
         case MethodCall(obj: ExprTree, meth: Identifier, args: List[ExprTree]) => {
-          
-          compileExpr(ch, obj)
+
+          compileExpr(ch, obj, slotOf)
           var sb = new StringBuilder
           sb.append("(")
           args.foreach(a => sb.append(getTypeNotation(a.getType)))
@@ -233,10 +257,22 @@ object CodeGeneration extends Pipeline[Program, Unit] {
         }
         case Identifier(value: String) => {
           val sym = expr.asInstanceOf[Identifier].getSymbol
+          if (slotOf.get(sym.id).isEmpty) {
+            println("Identifier----> "+slotOf+" <- "+expr)
+            println("GETFIELD("+expr.getType.toString()+", "+sym.name+", "+getTypeNotation(expr.getType)+")")
+            ch << GetField("B", sym.name, getTypeNotation(expr.getType))
+          } else {
+            val slot = slotOf.get(sym.id).get
+            if (sym.getType == TInt || sym.getType == TBoolean) ch << ILoad(slot)
+            else ch << ALoad(slot)
+
+          }
         }
-        case This() =>
+        case This() => {
+          ch << ALoad(0)
+        }
         case NewIntArray(size: ExprTree) => {
-          //compileExpr(ch, size)
+          //compileExpr(ch, size, slotOf)
           //ch << NewIntArray(ch.)
         }
         case New(tpe: Identifier) => {
@@ -245,7 +281,7 @@ object CodeGeneration extends Pipeline[Program, Unit] {
         case Not(expr: ExprTree) => {
           val ok = ch.getFreshLabel("ok")
           ch << Ldc(1)
-          compileExpr(ch, expr)
+          compileExpr(ch, expr, slotOf)
           ch << IfEq(ok) << POP << Ldc(0)
           ch << Label(ok)
         }
