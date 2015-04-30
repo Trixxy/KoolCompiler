@@ -1,41 +1,43 @@
-/*
-mycode.kool:13:9: Warning: Variable b is declared but never used.
-    var b: Int;
-         ^
-*/
 
-object Example {
-  def main(): Unit = {
-    /*while(1 < 2) {
-      println("true");
-    }*/ //else {println("false");}
-    println(new B().foo());
-  }
-  
+// This is a simple implementation of '99 bottles of beer' in Tool.
+// I guess everyone saw that one coming :)
+
+// The code is much more convoluted that it would be in Scala, partly
+// for the lack of match and lists, but also because we have unnecessary
+// variables, assignements and ifs, to keep the reference compiler happy.
+
+// To quote @built (twitter.com/built) about his language 'Wheeler':
+// "MY GOD IT'S FULL OF STATE!"
+
+object NinetyNineBottles {
+    def main() : Unit = {
+        if(new DrunkPirate().sing()) { println("Done!"); }
+    } 
 }
 
-/*class A extends B{
-  def foo() : B = {
-    return new B();
-  }
-}*/
+class DrunkPirate {
+    def sing() : Bool = {
+        var value : Int;
+        value = this.verse(99);
+        return true;
+    }
 
-class B {
-  var hej: Int;
-  def foo(): Int = {
-    var i : Int;
-    i = 10;
-    hej = 100;
-    return hej;
-  }
-  /*def foo2(): Int = {
-    var hej4: Int;
-    var hej5: Int;
-    hej4 = 3;
-    hej5 = 4;
-    return 10;
-  }*/
+    def verse(number: Int) : Int  = {
+        var value : Int;
+        value = 0;
+
+        println(this.bottles(number) + " of beer on the wall, take one down, pass it around, " + this.bottles(number - 1) + " of beer on the wall.");
+        if (1 < number) { value = this.verse(number - 1); }
+        return value;
+    }
+
+    def bottles(number: Int) : String = {
+        var value : String;
+        if (number == 0) { value = "no more bottles"; } else {
+            if (number == 1) { value = "1 bottle"; } else {
+                value = number + " bottles";
+            }
+        }
+        return value;
+    }
 }
-
-
-//          println(lhs.getType+" + "+rhs.getType+" = "+expr.getType)

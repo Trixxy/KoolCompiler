@@ -359,7 +359,9 @@ object NameAnalysis extends Pipeline[Program, Program] {
           //			A 		int[] 	no
           //			int 	int[] 	no
 
-          if (lhs.getType == rhs.getType && (lhs.getType == Types.TInt || lhs.getType == Types.TString || lhs.getType == Types.TObject)) expr.setType(Types.TBoolean)
+          if (lhs.getType == rhs.getType && (lhs.getType == Types.TInt 
+              || lhs.getType == Types.TString || lhs.getType == Types.TBoolean 
+              || lhs.getType == Types.TIntArray || lhs.getType.isInstanceOf[Types.TObject])) expr.setType(Types.TBoolean)
           else expr.setType(Types.TError)
         }
         case ArrayRead(arr: ExprTree, index: ExprTree) => {
