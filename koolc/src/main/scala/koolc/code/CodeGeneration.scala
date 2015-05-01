@@ -18,7 +18,7 @@ object CodeGeneration extends Pipeline[Program, Unit] {
     def generateClassFile(sourceName: String, ct: ClassDecl, dir: String): Unit = {
       val classFile = new cafebabe.ClassFile(ct.id.value, if (ct.parent.isEmpty) None else Some(ct.parent.get.value))
       classFile.setSourceFile(sourceName)
-      classFile.addDefaultConstructor
+      val ch = classFile.addDefaultConstructor.codeHandler
 
       for (v <- ct.vars) {
         classFile.addField(getTypeNotation(v.getSymbol.getType), v.id.value)
@@ -27,10 +27,9 @@ object CodeGeneration extends Pipeline[Program, Unit] {
       for (m <- ct.methods) {
         var loa = List[String]()
         m.args.foreach(a => loa = loa :+ getTypeNotation(a.id.getType))
-        println("\nMETHOD ENTER: " + m.id.value + " -> " + loa)
+        //        println("\nMETHOD ENTER: " + m.id.value + " -> " + loa)
         val mh = classFile.addMethod(getTypeNotation(m.retType.getType), m.id.value, loa)
         generateMethodCode(mh.codeHandler, m)
-        mh.codeHandler.print
       }
 
       classFile.writeToFile("./classfiles/" + ct.id.value + ".class")
@@ -46,21 +45,21 @@ object CodeGeneration extends Pipeline[Program, Unit] {
 
       //Generate code for the arguments and variables
       mt.args.foreach(a => { slotOf += (a.getSymbol.id -> i); i += 1; })
-      mt.vars.foreach(v => { slotOf += (v.getSymbol.id -> i); i += 1; })
+      mt.vars.foreach(v => { slotOf += (v.getSymbol.id -> i); i += 1; ch.getFreshVar(getTypeNotation(v.id.getType)) })
 
       //Generate code for the method body
       mt.stats.foreach(s => compileStat(ch, s, slotOf, mt))
 
       //Generate code for the return statement
-      compileExpr(ch, mt.retExpr, slotOf, mt)
-      
+      compileExpr(ch, mt.retExpr, slotOf, mt, null)
+
       methSym.getType match {
         case TInt | TBoolean => ch << IRETURN
         case TString | TIntArray => ch << ARETURN
-        case _ => (if (methSym.getType.isInstanceOf[TObject]) { println("TEST") ; ch << ARETURN } else ch << RETURN)
+        case _ => (if (methSym.getType.isInstanceOf[TObject]) { ch << ARETURN } else ch << RETURN)
       }
+
       ch.freeze
-      
     }
 
     def generateMainMethodCode(ch: CodeHandler, stmts: List[StatTree], cname: String): Unit = {
@@ -69,10 +68,9 @@ object CodeGeneration extends Pipeline[Program, Unit] {
       ch.freeze
     }
 
-    def compileStat(ch: cafebabe.CodeHandler, stat: StatTree, slotOf: Map[Int, Int], mt : MethodDecl): Unit = {
-      val className = if(mt == null) null else mt.getSymbol.classSymbol.name
+    def compileStat(ch: cafebabe.CodeHandler, stat: StatTree, slotOf: Map[Int, Int], mt: MethodDecl): Unit = {
+      val className = if (mt == null) null else mt.getSymbol.classSymbol.name
       
-      println(stat + "; className=" + className)
       stat match {
         /*case IntArrayType() =>
         case IntType() =>
@@ -85,7 +83,7 @@ object CodeGeneration extends Pipeline[Program, Unit] {
         case If(expr: ExprTree, thn: StatTree, els: Option[StatTree]) => {
           val nElse = ch.getFreshLabel("else")
 
-          compileExpr(ch, expr, slotOf, mt);
+          compileExpr(ch, expr, slotOf, mt, stat);
           ch << IfEq(nElse) //if pop != 0 
 
           compileStat(ch, thn, slotOf, mt)
@@ -104,7 +102,7 @@ object CodeGeneration extends Pipeline[Program, Unit] {
           val break = ch.getFreshLabel("break")
 
           ch << Label(loop)
-          compileExpr(ch, expr, slotOf, mt)
+          compileExpr(ch, expr, slotOf, mt, stat)
 
           ch << IfEq(break) //if pop != 0 
           compileStat(ch, stat, slotOf, mt)
@@ -114,21 +112,20 @@ object CodeGeneration extends Pipeline[Program, Unit] {
         }
         case Println(expr: ExprTree) => {
           ch << GetStatic("java/lang/System", "out", "Ljava/io/PrintStream;")
-          compileExpr(ch, expr, slotOf, mt)
+          compileExpr(ch, expr, slotOf, mt, stat)
           val oneLiner = if (expr.getType == TString) "(Ljava/lang/String;)V" else if (expr.getType == TBoolean) "(Z)V" else "(I)V"
           ch << InvokeVirtual("java/io/PrintStream", "println", oneLiner)
         }
         case Assign(id: Identifier, expr: ExprTree) => {
           if (slotOf.get(id.getSymbol.id).isEmpty) {
             ch << ALoad(0)
-            compileExpr(ch, expr, slotOf, mt)
+            compileExpr(ch, expr, slotOf, mt, stat)
 
-            println("PutField(" + className + ", " + id.value + ", " + getTypeNotation(expr.getType) + ")")
+            //            println("PutField(" + className + ", " + id.value + ", " + getTypeNotation(expr.getType) + ")")
             ch << PutField(className, id.value, getTypeNotation(expr.getType))
           } else {
-            compileExpr(ch, expr, slotOf, mt)
+            compileExpr(ch, expr, slotOf, mt, stat)
 
-            ch.getFreshVar(getTypeNotation(expr.getType))
             val slot = slotOf.get(id.getSymbol.id).get
             if (expr.getType == TInt || expr.getType == TBoolean) {
               ch << IStore(slot)
@@ -136,167 +133,202 @@ object CodeGeneration extends Pipeline[Program, Unit] {
           }
         }
         case ArrayAssign(id: Identifier, index: ExprTree, expr: ExprTree) => {
-          println("IASTORE: " + id + "; " + index + "; " + expr)
-
-          compileExpr(ch, id, slotOf, mt)
-          compileExpr(ch, index, slotOf, mt)
-          compileExpr(ch, expr, slotOf, mt)
-
+          //          println("IASTORE: " + id + "; " + index + "; " + expr)
+          compileExpr(ch, id, slotOf, mt, stat)
+          compileExpr(ch, index, slotOf, mt, stat)
+          compileExpr(ch, expr, slotOf, mt, stat)
           ch << IASTORE
         }
       }
     }
-    def compileExpr(ch: cafebabe.CodeHandler, expr: ExprTree, slotOf: Map[Int, Int], mt: MethodDecl): Unit = {
-      val className = if(mt == null) null else mt.getSymbol.classSymbol.name
-      
-      println(expr)
+    def compileExpr(ch: cafebabe.CodeHandler, expr: ExprTree, slotOf: Map[Int, Int], mt: MethodDecl, stat : StatTree): Unit = {
+      val className = if (mt == null) null else mt.getSymbol.classSymbol.name
+      //      println(expr)
       expr match {
         case And(lhs: ExprTree, rhs: ExprTree) => {
           ch << Ldc(0)
           val earlyFalse = ch.getFreshLabel("ef")
-          compileExpr(ch, lhs, slotOf, mt)
-
+          compileExpr(ch, lhs, slotOf, mt, stat)
+          ch << LineNumber(expr.line)
           ch << IfEq(earlyFalse) << POP
-          compileExpr(ch, rhs, slotOf, mt)
+          compileExpr(ch, rhs, slotOf, mt, stat)
 
           ch << Label(earlyFalse)
         }
         case Or(lhs: ExprTree, rhs: ExprTree) => {
           ch << Ldc(1)
           val earlyTrue = ch.getFreshLabel("et")
-          compileExpr(ch, lhs, slotOf, mt)
+          compileExpr(ch, lhs, slotOf, mt, stat)
+
+          ch << LineNumber(expr.line)
 
           ch << IfNe(earlyTrue) << POP
-          compileExpr(ch, rhs, slotOf, mt)
+          compileExpr(ch, rhs, slotOf, mt, stat)
 
           ch << Label(earlyTrue)
 
         }
         case Plus(lhs: ExprTree, rhs: ExprTree) => {
-
           expr.getType match {
             case TString => {
               ch << DefaultNew("java/lang/StringBuilder")
 
-              compileExpr(ch, lhs, slotOf, mt)
+              compileExpr(ch, lhs, slotOf, mt, stat)
               ch << InvokeVirtual("java/lang/StringBuilder", "append", (if (lhs.getType == TString) "(Ljava/lang/String;)" else "(I)") + "Ljava/lang/StringBuilder;")
 
-              compileExpr(ch, rhs, slotOf, mt)
+              compileExpr(ch, rhs, slotOf, mt, stat)
               ch << InvokeVirtual("java/lang/StringBuilder", "append", (if (rhs.getType == TString) "(Ljava/lang/String;)" else "(I)") + "Ljava/lang/StringBuilder;")
 
               ch << InvokeVirtual("java/lang/StringBuilder", "toString", "()Ljava/lang/String;")
 
+              ch << LineNumber(expr.line)
             }
             case TInt => {
-              compileExpr(ch, lhs, slotOf, mt)
-              compileExpr(ch, rhs, slotOf, mt)
+              ch << LineNumber(expr.line)
+              compileExpr(ch, lhs, slotOf, mt, stat)
+              compileExpr(ch, rhs, slotOf, mt, stat)
 
               ch << IADD
             }
             case _ => sys.error("Internal error cg.1")
           }
-
         }
+
         case Minus(lhs: ExprTree, rhs: ExprTree) => {
-          compileExpr(ch, lhs, slotOf, mt)
-          compileExpr(ch, rhs, slotOf, mt)
+          ch << LineNumber(expr.line)
+          compileExpr(ch, lhs, slotOf, mt, stat)
+          compileExpr(ch, rhs, slotOf, mt, stat)
           ch << ISUB
         }
         case Times(lhs: ExprTree, rhs: ExprTree) => {
-          compileExpr(ch, lhs, slotOf, mt)
-          compileExpr(ch, rhs, slotOf, mt)
+          ch << LineNumber(expr.line)
+          compileExpr(ch, lhs, slotOf, mt, stat)
+          compileExpr(ch, rhs, slotOf, mt, stat)
           ch << IMUL
         }
         case Div(lhs: ExprTree, rhs: ExprTree) => {
-          compileExpr(ch, lhs, slotOf, mt)
-          compileExpr(ch, rhs, slotOf, mt)
+          ch << LineNumber(expr.line)
+          compileExpr(ch, lhs, slotOf, mt, stat)
+          compileExpr(ch, rhs, slotOf, mt, stat)
           ch << IDIV
         }
         case LessThan(lhs: ExprTree, rhs: ExprTree) => {
           ch << Ldc(1)
-          compileExpr(ch, lhs, slotOf, mt)
-          compileExpr(ch, rhs, slotOf, mt)
+          ch << LineNumber(expr.line)
+          compileExpr(ch, lhs, slotOf, mt, stat)
+          compileExpr(ch, rhs, slotOf, mt, stat)
           val fLabel = ch.getFreshLabel("lt")
           ch << If_ICmpLt(fLabel) << POP << Ldc(0) << Label(fLabel)
         }
         case Equals(lhs: ExprTree, rhs: ExprTree) => {
           val fLabel = ch.getFreshLabel("eq")
           ch << Ldc(1)
-          compileExpr(ch, lhs, slotOf, mt)
-          compileExpr(ch, rhs, slotOf, mt)
 
-          if (lhs.getType.isInstanceOf[TObject] || lhs.getType == TString)
+          compileExpr(ch, lhs, slotOf, mt, stat)
+
+          ch << LineNumber(expr.line)
+
+          compileExpr(ch, rhs, slotOf, mt, stat)
+
+          if (lhs.getType.isInstanceOf[TObject] || lhs.getType == TString || lhs.getType == TIntArray)
             ch << If_ACmpEq(fLabel) << POP << Ldc(0) << Label(fLabel)
           else
             ch << If_ICmpEq(fLabel) << POP << Ldc(0) << Label(fLabel)
 
         }
         case ArrayRead(arr: ExprTree, index: ExprTree) => {
-          compileExpr(ch, arr, slotOf, mt)
-          compileExpr(ch, index, slotOf, mt)
+          ch << LineNumber(expr.line)
+          compileExpr(ch, arr, slotOf, mt, stat)
+          compileExpr(ch, index, slotOf, mt, stat)
 
           ch << IALOAD
         }
         case ArrayLength(arr: ExprTree) => {
-          compileExpr(ch, arr, slotOf, mt)
+          ch << LineNumber(expr.line)
+          compileExpr(ch, arr, slotOf, mt, stat)
           ch << ARRAYLENGTH
         }
         case MethodCall(obj: ExprTree, meth: Identifier, args: List[ExprTree]) => {
-
-          compileExpr(ch, obj, slotOf, mt)
+          ch << LineNumber(expr.line)
+          compileExpr(ch, obj, slotOf, mt, stat)
 
           var sb = new StringBuilder
           sb.append("(")
-          
+
           meth.getSymbol.asInstanceOf[MethodSymbol].argList.foreach(a => sb.append(getTypeNotation(a.getType)))
-          args.foreach(a => compileExpr(ch, a, slotOf, mt))
+          args.foreach(a => compileExpr(ch, a, slotOf, mt, stat))
 
           sb.append(")")
           sb.append(getTypeNotation(meth.getSymbol.getType))
 
-          println("InvokeVirtual("+obj.getType.toString()+", "+meth.value+", "+sb.toString+")")
-          ch << InvokeVirtual(obj.getType.toString(), meth.value, sb.toString)
-          println("I'm ALIVE")
+          val polly = {
+            if (meth.getSymbol.asInstanceOf[MethodSymbol].classSymbol.name != obj.getType.toString())
+              meth.getSymbol.asInstanceOf[MethodSymbol].classSymbol.name
+            else
+              obj.getType.toString()
+          }
+          //        	println("InvokeVirtual(" + obj.getType.toString() + ", " + meth.value + ", " + sb.toString + ")")
+
+          //          if (meth.getSymbol.isInstanceOf[MethodSymbol]){
+          //          
+          //          }
+          ch << LineNumber(expr.line)
+          ch << InvokeVirtual(polly, meth.value, sb.toString)
         }
         case IntLit(value: Int) => {
+          ch << LineNumber(expr.line)
           ch << Ldc(value)
         }
         case StringLit(value: String) => {
+          ch << LineNumber(expr.line)
           ch << Ldc(value)
         }
 
         case True() => {
+          ch << LineNumber(expr.line)
           ch << Ldc(1)
         }
         case False() => {
+          ch << LineNumber(expr.line)
           ch << Ldc(0)
         }
         case Identifier(value: String) => {
           val sym = expr.asInstanceOf[Identifier].getSymbol
+          
+          if (!(stat.isInstanceOf[ArrayAssign]))  
+            ch << LineNumber(expr.line)
+
           if (slotOf.get(sym.id).isEmpty) {
-            println("GETFIELD(" + className + ", " + sym.name + ", " + getTypeNotation(expr.getType) + ")")
+            //            println("GETFIELD(" + className + ", " + sym.name + ", " + getTypeNotation(expr.getType) + ")")
             ch << ALoad(0) << GetField(className, sym.name, getTypeNotation(expr.getType))
-          } else //ch << ArgLoad(slotOf.get(sym.id).get)
-          {
+          } else {
             val slot = slotOf.get(sym.id).get
             if (sym.getType == TInt || sym.getType == TBoolean) ch << ILoad(slot)
             else ch << ALoad(slot)
           }
+          
+          if((stat.isInstanceOf[ArrayAssign]))  
+            ch << LineNumber(expr.line)
+
         }
         case This() => {
+          ch << LineNumber(expr.line)
           ch << ALoad(0)
         }
         case NewIntArray(size: ExprTree) => {
-          compileExpr(ch, size, slotOf, mt)
+          ch << LineNumber(expr.line)
+          compileExpr(ch, size, slotOf, mt, stat)
           ch << NewArray.primitive("T_INT")
         }
         case New(tpe: Identifier) => {
+          ch << LineNumber(expr.line)
           ch << DefaultNew(tpe.value)
         }
         case Not(expr: ExprTree) => {
           val ok = ch.getFreshLabel("ok")
-          ch << Ldc(1)
-          compileExpr(ch, expr, slotOf, mt)
+          compileExpr(ch, expr, slotOf, mt, stat)
+          ch << Ldc(1) << SWAP
+          ch << LineNumber(expr.line)
           ch << IfEq(ok) << POP << Ldc(0)
           ch << Label(ok)
         }
@@ -310,8 +342,7 @@ object CodeGeneration extends Pipeline[Program, Unit] {
         case TBoolean => "Z"
         case TIntArray => "[I"
         case TObject(classSymbol: ClassSymbol) => {
-          println("-----> TYPE IS " + tpe.toString());
-          "L"+tpe.toString()+";";
+          "L" + tpe.toString() + ";";
         }
         case TUntyped => "ERROR untyped"
         case TError => "ERROR TYPE"
